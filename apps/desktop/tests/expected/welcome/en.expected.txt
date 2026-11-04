@@ -1,6 +1,6 @@
-DeepSeek Harness
-DeepSeek Harness
-Welcome to DeepSeek Harness
-Build potential. Explore intelligence.
+Peto Agent
+Peto Agent
+Welcome to Peto Agent
+Your projects. Peto does the work.
 Sign in
 Add API Key
