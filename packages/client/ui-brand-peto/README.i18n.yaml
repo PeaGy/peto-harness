@@ -1,0 +1,31 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/client/ui-brand-peto/README.md
+/:
+  en: a499023795721a2a
+  zh: db150f708de00a4c
+/deepseek-ai-dsh-client-ui-brand-peto:
+  en: c999d8eb262b8cdf
+  zh: a6e7f737ebf8c943
+/deepseek-ai-dsh-client-ui-brand-peto/summary:
+  en: 60d06b02d590c4ed
+  zh: 742a2cf36c8cbe8f
+/deepseek-ai-dsh-client-ui-brand-peto/table-of-contents:
+  en: 2fee9973f19f9401
+  zh: 8ab4b55413cb8408
+/deepseek-ai-dsh-client-ui-brand-peto/use-this-package:
+  en: c5d6c66dfe3676d6
+  zh: 6dde678032de1f5b
+/deepseek-ai-dsh-client-ui-brand-peto/understand-the-implementation:
+  en: 95ba53485dd9bb67
+  zh: 8afd99954fa51979
+/deepseek-ai-dsh-client-ui-brand-peto/model-experience:
+  en: 618008c7641070e7
+  zh: 6770b38893bd7c3e
+/deepseek-ai-dsh-client-ui-brand-peto/model-experience/kv-cache-effect:
+  en: ca75c51c89c2c9b0
+  zh: f57cc48a1b5cbfa9
+/deepseek-ai-dsh-client-ui-brand-peto/known-limitations-and-deferred-work:
+  en: 2b701fd4ed347e57
+  zh: 4cb366b66c8fc7a2

@@ -341,9 +341,10 @@
     - id: ui-chat
       name: '@deepseek-ai/dsh-client-ui-chat'
 
-    # Official occupants for the sidebar brand slots and the home whale frame layer.
-    - id: ui-brand-official
-      name: '@deepseek-ai/dsh-client-ui-brand-official'
+    # Peto: Peto's marks fill the sidebar and home-hero brand slots instead of the official whale, wordmark and
+    # home whale frame layer.
+    - id: ui-brand-peto
+      name: '@deepseek-ai/dsh-client-ui-brand-peto'
 
     - id: ui-attachment
       name: '@deepseek-ai/dsh-client-ui-attachment'

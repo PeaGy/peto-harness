@@ -119,8 +119,8 @@ device token lives on the user's machine, stored through the harness's credentia
 
 1. Build and run upstream unchanged on Windows (`pnpm install`, `pnpm run build`, `pnpm run dev:desktop`).
 2. Branding: Welcome screen, app name, icons, tray and installer names, About credit. Mockups first. Done: Welcome
-   screen, the agent's own introduction, and the name in text ("App name" below). Left: icons, the sidebar mark,
-   installer artwork and the home whale (visual, mockups first).
+   screen, the agent's own introduction, the name in text ("App name" below) and the in-app mark ("Brand mark").
+   Left: app, tray, installer and favicon images (visual, mockups first).
 3. Cut DeepSeek services: update feed, analytics, Platform pages.
 4. Peto sign-in: Peto-Web gateway (deployed), sign-in and model route here (built; the owner signed in with Peto and
    chatted with model `peto` in `dev:desktop` on 2026-11-05), then the account card.
@@ -189,9 +189,8 @@ device token lives on the user's machine, stored through the harness's credentia
     Peto's notice ("Peto Agent is still in preview … built on DeepSeek Harness 0.2 …") in all eight languages.
   - Local builds: `brand.localBuild` in `packages/client/locale` is "Peto Local Build" (sidebar and window title of
     `dev:desktop`); `apps/web/index.html`, `apps/web/vite.config.ts` and `apps/web/public/manifest.webmanifest` follow.
-    The official build profile's title (`scripts/client-build-environment.ts`) is "Peto Agent"; that profile still
-    draws DeepSeek's whale and wordmark in the sidebar (`ui-brand-official`), so do not ship it before the sidebar mark
-    is replaced.
+    The official build profile's title (`scripts/client-build-environment.ts`) is "Peto Agent"; its sidebar shows the
+    Peto mark and name ("Brand mark").
   - Tests and goldens updated with the copy: `apps/desktop/tests/**`, `apps/web/tests/expected/**`,
     `WELCOME_NOTICE_COPY` in `apps/web/tests/scaffold.ts`, the onboarding/plugin/manifest web tests and the client
     package tests that pin it.
@@ -200,3 +199,11 @@ device token lives on the user's machine, stored through the harness's credentia
     test files were run before and after the change: no new failure, and the onboarding, plugin-install, manifest and
     Preview Notice goldens pass with the new copy. The SDK snapshot lane (`snapshots/sdk`) fails on this machine before
     its runtime-context checks (its replay does not intercept the DeepSeek request), so its absence checks were not run.
+- Brand mark (stage 2, 2026-11-05; the owner picked "A. Đặc" of three monochrome mockups): new package
+  `packages/client/ui-brand-peto` (`@deepseek-ai/dsh-client-ui-brand-peto`) fills `sidebar.brand.mark` (expanded
+  sidebar and collapsed rail) and `conversation.hero.brand.mark` with the Welcome logo traced into one solid
+  `currentColor` silhouette, so it follows the theme like the whale; `official` builds also get "Peto Agent" in
+  `sidebar.brand.name`. `packages/bundle/web-app/cordis.patch.yml` and `package.json` mount it instead of
+  `ui-brand-official`, which also drops the click-triggered home whale. Registered in `tsconfig.base.json`,
+  `tsconfig.client.json`, `scripts/verify-package-readme-model-experience.ts`, `pnpm-lock.yaml` and the generated
+  `packages/extensions/cordis-client-runner/src/client/slot-catalog.ts`.
