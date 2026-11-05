@@ -1,6 +1,6 @@
 {
-  "name": "DeepSeek Harness",
-  "short_name": "DSH",
+  "name": "Peto Agent",
+  "short_name": "Peto",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

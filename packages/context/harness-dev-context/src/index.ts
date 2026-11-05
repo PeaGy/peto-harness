@@ -37,7 +37,8 @@ const HARNESS_SOURCE_GUIDANCE = 'The checkout location and current working direc
   + 'never infer the working directory from the checkout path. Use pwd to determine the current working directory. '
   + 'Use this checkout only to inspect or extend DSH itself.'
 
-const HARNESS_SOURCE_PROMPT = `The runtime context names the DeepSeek Harness implementation checkout. ${HARNESS_SOURCE_GUIDANCE}`
+// Peto: the current text names the app Peto Agent; the frozen LEGACY_* copies below keep upstream's wording.
+const HARNESS_SOURCE_PROMPT = `The runtime context names the Peto Agent implementation checkout. ${HARNESS_SOURCE_GUIDANCE}`
 
 const WEB_SURFACE_GUIDANCE = 'When the user refers to "this page", "this GUI", or "this app" without naming another target, they mean this GUI. '
   + 'The browser provides no implicit DOM, route, or screenshot context. '
@@ -48,7 +49,7 @@ const WEB_SURFACE_GUIDANCE = 'When the user refers to "this page", "this GUI", o
   + 'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. '
   + 'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.'
 
-const WEB_SURFACE_PROMPT = `You are interacting with the user through the DeepSeek Harness Web GUI whose URL the runtime context names. ${WEB_SURFACE_GUIDANCE}`
+const WEB_SURFACE_PROMPT = `You are interacting with the user through the Peto Agent Web GUI whose URL the runtime context names. ${WEB_SURFACE_GUIDANCE}`
 
 /**
  * Fixed text around the value in each paragraph that embedded it, frozen as
@@ -141,7 +142,7 @@ export async function apply(ctx: Context): Promise<void> {
     name: HARNESS_SOURCE,
     order: ctx.systemPrompt.getContextOrder('HARNESS_SOURCE'),
     interpolate: false,
-    text: `Current DeepSeek Harness implementation checkout: ${JSON.stringify(SOURCE_ROOT)}.`,
+    text: `Current Peto Agent implementation checkout: ${JSON.stringify(SOURCE_ROOT)}.`,
   })
   ctx.systemPrompt.section({
     name: WEB_SURFACE,
@@ -153,6 +154,6 @@ export async function apply(ctx: Context): Promise<void> {
     name: WEB_SURFACE,
     order: ctx.systemPrompt.getContextOrder('WEB_SURFACE'),
     interpolate: false,
-    text: () => `Current DeepSeek Harness Web GUI URL: ${JSON.stringify(ctx.webApp.getAdvertisedUrl())}.`,
+    text: () => `Current Peto Agent Web GUI URL: ${JSON.stringify(ctx.webApp.getAdvertisedUrl())}.`,
   })
 }

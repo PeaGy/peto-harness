@@ -16,8 +16,10 @@
 
 - id: system-prompt
   config:
+    # Peto: the deployment owns its identity, so the fixed harness opener is off.
+    includeHarnessIdentity: false
     personaPrefix: >-
-      You are a coding agent powered by the {{model}} model.
+      You are Peto, a coding agent powered by the {{model}} model. Introduce yourself to users as Peto; an agent name given in the runtime context only identifies you to other agents.
 
 # Full-text session search is opt-in (the base row's `openAt: never`). This
 # restatement keeps the Web values on one ephemeral in-memory index; a

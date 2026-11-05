@@ -118,7 +118,9 @@ device token lives on the user's machine, stored through the harness's credentia
 ## Stages
 
 1. Build and run upstream unchanged on Windows (`pnpm install`, `pnpm run build`, `pnpm run dev:desktop`).
-2. Branding: Welcome screen, app name, icons, tray and installer names, About credit. Mockups first.
+2. Branding: Welcome screen, app name, icons, tray and installer names, About credit. Mockups first. Done: Welcome
+   screen, the agent's own introduction, and the name in text ("App name" below). Left: icons, the sidebar mark,
+   installer artwork and the home whale (visual, mockups first).
 3. Cut DeepSeek services: update feed, analytics, Platform pages.
 4. Peto sign-in: Peto-Web gateway (deployed), sign-in and model route here (built; the owner signed in with Peto and
    chatted with model `peto` in `dev:desktop` on 2026-11-05), then the account card.
@@ -135,7 +137,7 @@ device token lives on the user's machine, stored through the harness's credentia
     "Peto Agent"; `welcomeDescription` is "Your projects. Peto does the work." and its translations.
   - `apps/desktop/tests/expected/welcome/*`: updated to that copy.
   - "Sign in" now signs in to Peto (stage 4) and keeps its upstream label; the API key page still describes DeepSeek
-    keys, which is what it saves. The product name elsewhere (menus, tray, installer, About) is stage 2's rename.
+    keys, which is what it saves. The product name elsewhere (menus, tray, installer, About) is under "App name".
 - Peto sign-in (stage 4):
   - `packages/bundle/base/cordis.patch.yml`: the `deepseek-account` entry mounts `@deepseek-ai/dsh-peto-account`
     instead of `@deepseek-ai/dsh-deepseek-account-platform`; new `llm-peto-account` entry; `agent-default-model` is
@@ -144,3 +146,57 @@ device token lives on the user's machine, stored through the harness's credentia
     its `adapter.spec.ts` "keeps adapter helpers off the package root" now expects `resolveProfiles` on the root.
   - `tsconfig.base.json` (regenerated aliases), `tsconfig.host.json` (two references) and `pnpm-lock.yaml` (two
     workspace importers, no new external packages).
+- Agent identity (2026-11-05; before it the agent answered "I'm lead … running in DeepSeek Harness"):
+  - `packages/bundle/web-app/cordis.patch.yml`: the `system-prompt` row sets `includeHarnessIdentity: false` (drops
+    the fixed "You are an AI agent powered by DeepSeek Harness." opener) and the Peto `personaPrefix`; the
+    `standard`, `ptc` and `cordis` presets in `packages/bundle/web-app/presets/` carry the same persona: "You are
+    Peto, a coding agent powered by the {{model}} model. Introduce yourself to users as Peto; an agent name given in
+    the runtime context only identifies you to other agents." (`lead` stays the root agent's internal name, which
+    sessions and subagent tools rely on.) `minimal` keeps its complete prompt, which names no product.
+  - `snapshots/web/*/system-prompt.expected.md` (eight goldens) and `apps/web/tests/replay-round-trip.e2e.ts` follow
+    that text. New Peto test: `packages/bundle/web-app/tests/peto-identity.spec.ts`, which fails if a merge restores
+    the upstream rows.
+  - `packages/context/harness-dev-context/src/index.ts`: the current section and runtime-context text says "the Peto
+    Agent Web GUI" and "the Peto Agent implementation checkout" (before it the agent called the app "your DeepSeek
+    Harness workspace"). `LEGACY_SOURCE` and `LEGACY_WEB_SURFACE` stay upstream's frozen text: they only recognise
+    paragraphs that Sessions from earlier releases already admitted. Its tests and README quotes follow, as do
+    `packages/bundle/web-app/src/index.ts` (the `DSH_WEB_URL` description), the web test scaffold's normaliser,
+    `replay-round-trip`, `smoke-real`, `web-runtime-context/web-surface-prompt.expected.md`,
+    `snapshots/web/fresh-round-trip/web-context.expected.md`, the SDK absence checks (`snapshots/sdk/sdk.snapshot.ts`,
+    `apps/cli/tests/profiles/sdk/keyless-smoke.e2e.ts`) and the recorded runtime-context sections in
+    `snapshots/web/*/session*.v4.jsonl`.
+  - Not changed: the headless, SDK and ACP bundles keep upstream's persona and opener (they serve the `dsh` CLI and
+    SDK, not the app).
+- App name (stage 2, 2026-11-05). The app is "Peto Agent", as on the Welcome screen; "Built on DeepSeek Harness" is the
+  About credit. Engine-level names stay upstream's: the `dsh` command and its help, the SDKs, package descriptions shown
+  on the Plugins page, "DSH plugin" in Creator mode, `~/.dsh`, docs and notes.
+  - `apps/desktop/src/locale.ts`, eight languages: menus, tray, quit dialog, startup failure, update title. New
+    `aboutCredit` ("Built on DeepSeek Harness" and translations) under the version in the Windows About dialog
+    (`apps/desktop/src/main.ts`), and as the macOS About panel's copyright line; its `applicationName` is the localized
+    product name.
+  - `apps/desktop/scripts/electron-builder-config.mjs`: `productName` "Peto Agent" (executable `Peto Agent.exe`, macOS
+    `Peto Agent.app`, install folder, Electron's userData directory `%APPDATA%\Peto Agent`), the `dsh:` protocol name
+    and the microphone usage text. Hardcoded executable paths follow: `apps/desktop/cli/dsh`, `dsh.cmd`,
+    `scripts/package-macos.ts`, `package-target.ts`, `smoke-packaged-runtime.ts`, `verify-retained-desktop.ts`,
+    `development-app.ts`, `electron-builder.config.d.mts`. Artifact names (`deepseek-harness-<version>-…`) are
+    unchanged: the upload, update-feed and version-discovery scripts match them, so they change with stage 3.
+  - Installer: `apps/desktop/installer/locales/*.json` (eight) and `extract-report.h`.
+  - Client copy: `packages/client/ui-settings-account` (account page and first-run onboarding), `ui-plugin-manager`
+    (install warning), `ui-sidebar-documentpreview` (Office preview notice), `packages/experimental/cua` (approval
+    notice). The onboarding credit step and the account page still describe DeepSeek's balance and top-up; that
+    belongs to the account card.
+  - `packages/client/ui-settings-models`: the first-run "Preview Notice" was DeepSeek's own letter; it is rewritten as
+    Peto's notice ("Peto Agent is still in preview … built on DeepSeek Harness 0.2 …") in all eight languages.
+  - Local builds: `brand.localBuild` in `packages/client/locale` is "Peto Local Build" (sidebar and window title of
+    `dev:desktop`); `apps/web/index.html`, `apps/web/vite.config.ts` and `apps/web/public/manifest.webmanifest` follow.
+    The official build profile's title (`scripts/client-build-environment.ts`) is "Peto Agent"; that profile still
+    draws DeepSeek's whale and wordmark in the sidebar (`ui-brand-official`), so do not ship it before the sidebar mark
+    is replaced.
+  - Tests and goldens updated with the copy: `apps/desktop/tests/**`, `apps/web/tests/expected/**`,
+    `WELCOME_NOTICE_COPY` in `apps/web/tests/scaffold.ts`, the onboarding/plugin/manifest web tests and the client
+    package tests that pin it.
+  - Verification on Windows (2026-11-05): web snapshots were not re-recorded, since upstream records them on
+    Linux/macOS and many already replay differently here (no `bash` tool, local skills). Sixteen representative web
+    test files were run before and after the change: no new failure, and the onboarding, plugin-install, manifest and
+    Preview Notice goldens pass with the new copy. The SDK snapshot lane (`snapshots/sdk`) fails on this machine before
+    its runtime-context checks (its replay does not intercept the DeepSeek request), so its absence checks were not run.
