@@ -119,8 +119,8 @@ device token lives on the user's machine, stored through the harness's credentia
 
 1. Build and run upstream unchanged on Windows (`pnpm install`, `pnpm run build`, `pnpm run dev:desktop`).
 2. Branding: Welcome screen, app name, icons, tray and installer names, About credit. Mockups first. Done: Welcome
-   screen, the agent's own introduction, the name in text ("App name" below) and the in-app mark ("Brand mark").
-   Left: app, tray, installer and favicon images (visual, mockups first).
+   screen, the agent's own introduction, the name in text ("App name" below), the in-app mark ("Brand mark") and the
+   app, tray, installer and Web icons ("App icons"). Left: the experimental liveshare viewer still draws the whale.
 3. Cut DeepSeek services: update feed, analytics, Platform pages.
 4. Peto sign-in: Peto-Web gateway (deployed), sign-in and model route here (built; the owner signed in with Peto and
    chatted with model `peto` in `dev:desktop` on 2026-11-05), then the account card.
@@ -207,3 +207,21 @@ device token lives on the user's machine, stored through the harness's credentia
   `ui-brand-official`, which also drops the click-triggered home whale. Registered in `tsconfig.base.json`,
   `tsconfig.client.json`, `scripts/verify-package-readme-model-experience.ts`, `pnpm-lock.yaml` and the generated
   `packages/extensions/cordis-client-runner/src/client/slot-catalog.ts`.
+- App icons (stage 2, 2026-11-05; the owner picked "A. Nền trắng · logo đặc" of three mockups): upstream's tile,
+  gradients, shadows and dark glyph gradient stay; only the whale path is replaced by the Peto mark (centred at
+  (556, 566), 760 units wide, in the shared 1024 tile space).
+  - `apps/desktop/resources/icon-windows.svg`, `icon-macos.svg`, `icon.svg` carry the traced mark with its hair
+    highlights; their PNGs (`icon-windows.png` 1024, `icon-macos.png` 1024, `icon.png` 1104) are rendered from them
+    with sharp at 1:1.
+  - New `apps/desktop/resources/tray-windows.svg`: the Windows tile with the simplified in-app mark, which stays crisp
+    at 16–64 px. `apps/desktop/scripts/render-tray-icon.ts` reads it instead of `icon-windows.svg` (one line);
+    `tray-windows.ico` is its output (`pnpm run render:tray-icon` in `apps/desktop`).
+  - Web: `apps/web/public/favicon.svg` and `favicon-dark.svg` are the simplified mark (black and white, as upstream);
+    `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` and `apple-touch-icon.png` come from upstream's own
+    `apps/web/scripts/render-app-icons.ts` over the new `icon.svg`.
+  - Installer: `apps/desktop/installer/assets/brand*.png` (light and dark, 1x and 2x) show the mark on the light disc
+    above the Welcome lockup ("Peto" and the AGENT chip from `welcome-brand.svg`, scaled 1.25) instead of "deepseek
+    HARNESS"; `uninstaller-sidebar.png` shows the tile. These and the desktop PNGs were rendered with sharp from
+    SVG built on the same tile defs; no script for them is committed, so redo them the same way if the mark changes.
+  - Checked: tray-icon, installer-packaging, main-startup and tray specs, the Web `app-icons` spec and
+    `pwa-manifest.e2e.ts` (maskable safe circle) pass. The NSIS installer itself was not built.

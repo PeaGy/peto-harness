@@ -1,5 +1,6 @@
 /**
- * Render the Windows tray icon with an enlarged whale from `resources/icon-windows.svg`.
+ * Render the Windows tray icon with an enlarged mark from `resources/tray-windows.svg` (Peto: the Windows tile with
+ * the simplified Peto mark).
  *
  * The tray shows the icon at 16 logical pixels, so Windows picks one of the
  * bundled bitmaps by display scale. Each size is rasterized from the vector
@@ -18,7 +19,8 @@ export const TRAY_ICON_SIZES = [16, 20, 24, 32, 40, 48, 64] as const
 
 /** Vector source and committed output of the tray icon. */
 export const TRAY_ICON_PATHS = {
-  source: fileURLToPath(new URL('../resources/icon-windows.svg', import.meta.url)),
+  // Peto: a separate source carries the simplified Peto mark, which stays crisp at tray sizes.
+  source: fileURLToPath(new URL('../resources/tray-windows.svg', import.meta.url)),
   output: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)),
 } as const
 
