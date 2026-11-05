@@ -51,8 +51,11 @@ async function peto(): Promise<Server> {
     state.received.push({ method: req.method, path: req.url, authorization: req.headers.authorization, body })
     if (state.hold) return
     if (req.url === '/api/agent/device/start') reply(res, typeof state.start === 'function' ? state.start(state.origin) : state.start)
-    else if (req.url === '/api/agent/device/token') reply(res, state.polls.length > 1 ? state.polls.shift()! : state.polls[0])
-    else if (req.url === '/api/agent/me') reply(res, state.me)
+    else if (req.url === '/api/agent/device/token') {
+      const poll = state.polls.length > 1 ? state.polls.shift() : state.polls[0]
+      if (poll === undefined) throw new Error('missing device poll')
+      reply(res, poll)
+    } else if (req.url === '/api/agent/me') reply(res, state.me)
     else if (req.url === '/api/agent/logout') reply(res, { status: 200, body: { revoked: true } })
     else reply(res, { status: 404 })
   }
@@ -207,6 +210,7 @@ it('keeps polling through passing failures and gives up after repeated ones', as
   vi.spyOn(console, 'error').mockImplementation(() => undefined)
   const server = await peto()
   const approved = server.polls[1]
+  if (approved === undefined) throw new Error('missing device poll')
   server.polls = [{ status: 500 }, { status: 503 }, { status: 428 }, approved]
   const f = await fixture(server)
   await f.account.startSignIn(client, 'http://127.0.0.1:1', 'desktop')

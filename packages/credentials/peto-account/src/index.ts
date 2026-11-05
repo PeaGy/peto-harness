@@ -7,7 +7,7 @@ import Schema from '@deepseek-ai/schemastery'
 import { z } from 'zod'
 import {
   DeepSeekAccount, installAccountTaskCancellation, type AccountBonusBatch, type AccountDetails, type AccountUserId, type AccountView,
-  type PlatformSession, type SignInAttemptId, type SignInAttemptView,
+  type AccountBonusOrderId, type AccountClientMetadata, type PlatformSession, type SignInAttemptId, type SignInAttemptView,
 } from '@deepseek-ai/dsh-deepseek-account'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { AuthorizationSession } from '@deepseek-ai/dsh-authorization'
@@ -147,7 +147,7 @@ export class PetoAccount extends DeepSeekAccount {
     }
   }
 
-  override async getProfile(): Promise<AccountDetails['profile'] | null> {
+  override async getProfile(_client: AccountClientMetadata): Promise<AccountDetails['profile'] | null> {
     const lifetime = this.detailsLifetime
     const stored = await this.readCurrentGrant(lifetime)
     if (stored === null) return null
@@ -172,22 +172,24 @@ export class PetoAccount extends DeepSeekAccount {
     return profile
   }
 
-  override async getBalance(): Promise<AccountDetails['balance'] | null> {
+  override async getBalance(_client: AccountClientMetadata): Promise<AccountDetails['balance'] | null> {
     // Peto Web meters daily Agent steps instead of a wallet, so a signed-in account has no balances.
     const stored = await this.readCurrentGrant(this.detailsLifetime)
     return stored === null ? null : { status: 'ready', value: [], bonusWallets: [] }
   }
 
-  override async getUnnotifiedBonuses(): Promise<AccountBonusBatch | null> {
+  override async getUnnotifiedBonuses(_client: AccountClientMetadata): Promise<AccountBonusBatch | null> {
     const stored = await this.readCurrentGrant(this.detailsLifetime)
     return stored === null ? null : { accountId: stored.deviceId as AccountUserId, bonuses: [] }
   }
 
-  override ackBonusNotified(): Promise<boolean> {
+  override ackBonusNotified(_accountId: AccountUserId, _orderId: AccountBonusOrderId, _client: AccountClientMetadata): Promise<boolean> {
     return Promise.resolve(false)
   }
 
-  override async startSignIn(): Promise<AccountView> {
+  override async startSignIn(
+    _client: AccountClientMetadata, _callbackOrigin: string, _loginSource: 'web' | 'desktop',
+  ): Promise<AccountView> {
     if (this.removing !== undefined) await this.removing
     if (this.closed) throw new PetoAuthError('protocol')
     if (this.attempt !== undefined && ACTIVE_PHASES.has(this.attempt.view.phase)) return this.getState()
@@ -195,7 +197,6 @@ export class PetoAccount extends DeepSeekAccount {
     if (previous !== undefined) {
       await previous.done
       // Disposal can close the provider while the previous attempt settles.
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (this.closed) throw new PetoAuthError('protocol')
       if (this.attempt !== previous) return this.getState()
     }
@@ -236,7 +237,7 @@ export class PetoAccount extends DeepSeekAccount {
     return this.getState()
   }
 
-  override signOut(): Promise<AccountView> {
+  override signOut(_client: AccountClientMetadata): Promise<AccountView> {
     this.removing ??= (async () => {
       if (this.closed) throw new PetoAuthError('protocol')
       if (this.attempt !== undefined) await this.cancelSignIn(this.attempt.view.id)
