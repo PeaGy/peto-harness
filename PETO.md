@@ -59,13 +59,39 @@ change it only from a Peto-Web session). Its Agent API is under `/api/agent` and
 
 This maps onto the desktop Welcome flow's existing "waiting for browser / copy link" page.
 
-**Gap:** `POST /api/agent/step` runs one model call but imposes the server's own instructions and tool schemas, which
-match the Python CLI's tools, not this harness's. The fork needs a new Peto-Web endpoint that authenticates the device,
-charges Peto's daily step quota and calls the chosen model with the harness's own instructions and tools, streaming the
-result. A matching LLM adapter plugin here (modelled on `llm-deepseek-account`) uses it. Open decisions for the owner:
-- whether the server prepends a short Peto core prompt to the harness's instructions;
-- which wire format the endpoint speaks (the harness adapter's request or Responses-style items);
-- whether step costs follow the Python CLI's rules (effort × model cost).
+`POST /api/agent/step` imposes the server's own instructions and tool schemas (the Python CLI's), so Peto-Web now has
+an **OpenAI Responses–compatible gateway** for this app (Peto-Web `features/agent/gateway.py`, commit `e29858f`, deployed
+2026-11-05; owner's
+decisions: Responses protocol, no Peto prompt injected, steps charged like the CLI, open to every account):
+- `GET /api/agent/v1/models`: the account's Agent models (`id` is Peto's key: `peto`, `luna`, `haiku`, … plus
+  `display_name`, `context_window`, `max_output_tokens`).
+- `POST /api/agent/v1/responses`: streaming only, Bearer device token, the harness's own instructions and function
+  tools. Errors are OpenAI-shaped with `x-should-retry`; quota exhaustion is 429 `insufficient_quota`, context overflow
+  400 `context_length_exceeded`.
+- Verified with this repo's pi-ai 1.3.0 `openai-responses` client against a mock Peto backend (text, thinking, tool
+  call and result, replay).
+- Each `/models` entry also carries `reasoning_efforts` (Peto Web's effort names for that model; Peto-Web change after
+  `e29858f`, needs deploying). Without it the app offers low/medium/high for every model.
+
+The sign-in and model route in this repo (built 2026-11-05, two new packages):
+- `packages/credentials/peto-account` (`@deepseek-ai/dsh-peto-account`) provides the shared `deepseekAccount` Service
+  Definition from `dsh-deepseek-account`, mounted under the existing `deepseek-account` entry id. The account controller
+  (`account` RPC namespace), the desktop Welcome window, its waiting page and Copy link button, sign-out and the
+  expiry notice all work unchanged. Sign-in is the device code above; the token is a `peto-account/default` grant in the
+  harness credential store, bound to `server` and handed only to URLs on it. Sign-out revokes it through
+  `POST /api/agent/logout`. A refusal on the web ends the attempt as cancelled.
+- `packages/llm/llm-peto-account` (`@deepseek-ai/dsh-llm-peto-account`) registers route `peto`: pi-ai's
+  `PiAiAdapter` in `openai-responses` form against `baseURL`, API key = the account token, catalog from the gateway's
+  `/models` (loaded before every lookup and request, reloaded on sign-in/out). The default Agent model is `peto/peto`.
+- Server address: `https://peto.pearto.shop` in `packages/bundle/base/cordis.patch.yml` (both entries); a private
+  `$DSH_HOME/cordis.patch.yml` can override it. Not a credential.
+- Tests: `tests/account.spec.ts` (27) and `tests/provider.spec.ts` (10) against fake Peto servers on 127.0.0.1, including
+  one streamed reply through pi-ai. Line coverage 100% / ~90%; branch coverage is below upstream's 100% gate (mostly
+  disposal races).
+
+Next: the account card (account name, steps and tokens today from `/me`, "Manage" opens Peto Web → Settings → Peto
+Agent); it still renders DeepSeek's Platform layout over this account. The model-facing web_search/web_fetch tools still
+use DeepSeek's search providers; the gateway runs no web search.
 
 Never put Peto's server credentials (xAI, OpenAI, Anthropic keys) in this repository or in a build. Only the user's
 device token lives on the user's machine, stored through the harness's credentials service.
@@ -94,7 +120,8 @@ device token lives on the user's machine, stored through the harness's credentia
 1. Build and run upstream unchanged on Windows (`pnpm install`, `pnpm run build`, `pnpm run dev:desktop`).
 2. Branding: Welcome screen, app name, icons, tray and installer names, About credit. Mockups first.
 3. Cut DeepSeek services: update feed, analytics, Platform pages.
-4. Peto sign-in: Peto-Web endpoint, then the adapter and credentials plugin here.
+4. Peto sign-in: Peto-Web gateway (deployed), sign-in and model route here (built; the owner signed in with Peto and
+   chatted with model `peto` in `dev:desktop` on 2026-11-05), then the account card.
 5. Benchmark runner in agent-cli/evals.
 
 ## Peto changes to upstream files
@@ -107,6 +134,13 @@ device token lives on the user's machine, stored through the harness's credentia
   - `apps/desktop/src/locale.ts`, all eight languages: `welcomeTitle`, `welcomeBrand`, `welcomeTaglineBrand` are
     "Peto Agent"; `welcomeDescription` is "Your projects. Peto does the work." and its translations.
   - `apps/desktop/tests/expected/welcome/*`: updated to that copy.
-  - Not changed yet: "Sign in" still signs in to DeepSeek, so its label waits for Peto sign-in (stage 4); the API key
-    page still describes DeepSeek keys, which is what it saves. The product name elsewhere (menus, tray, installer,
-    About) is stage 2's rename.
+  - "Sign in" now signs in to Peto (stage 4) and keeps its upstream label; the API key page still describes DeepSeek
+    keys, which is what it saves. The product name elsewhere (menus, tray, installer, About) is stage 2's rename.
+- Peto sign-in (stage 4):
+  - `packages/bundle/base/cordis.patch.yml`: the `deepseek-account` entry mounts `@deepseek-ai/dsh-peto-account`
+    instead of `@deepseek-ai/dsh-deepseek-account-platform`; new `llm-peto-account` entry; `agent-default-model` is
+    `peto/peto` instead of `deepseek-official/deepseek-flash`. `packages/bundle/base/package.json` lists both packages.
+  - `packages/llm/llm-pi-ai/src/index.ts` also exports `resolveProfiles`, `authContextFrom` and `credentialStoreFrom`;
+    its `adapter.spec.ts` "keeps adapter helpers off the package root" now expects `resolveProfiles` on the root.
+  - `tsconfig.base.json` (regenerated aliases), `tsconfig.host.json` (two references) and `pnpm-lock.yaml` (two
+    workspace importers, no new external packages).

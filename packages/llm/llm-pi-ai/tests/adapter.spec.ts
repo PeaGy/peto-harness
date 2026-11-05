@@ -526,8 +526,9 @@ describe('PiAiAdapter provider routing', () => {
 
 describe('provider profile lifecycle', () => {
   it('keeps adapter helpers off the package root', () => {
+    // Peto fork: resolveProfiles is exported for @deepseek-ai/dsh-llm-peto-account, which builds its route's profile.
+    expect(LlmPiAi).toHaveProperty('resolveProfiles')
     for (const helper of [
-      'resolveProfiles',
       'toPiContext',
       'toPiReplayState',
       'toPiAssistant',
