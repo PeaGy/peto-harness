@@ -200,7 +200,8 @@ export function apply(ctx: Context): void {
     subscribeModelSignInRequired: listener => ctx.remote.$on('deepseek-account/model-sign-in-required', listener),
     ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refreshAccount) },
     refreshAccount,
-    contactUs() {
+    // An empty form URL leaves the deployment without a questionnaire, so the menu shows no Feedback entry.
+    contactUs: config.contactFormUrl === '' ? undefined : () => {
       // Sample the account, build and environment before awaiting native information, so
       // a profile the read outlasts cannot replace the UID this click reported.
       const profile = snapshot.details?.profile

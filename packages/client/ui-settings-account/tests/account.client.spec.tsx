@@ -201,6 +201,17 @@ it.each([en, zh])('offers settings, contact and sign-in from the signed-out acco
   expect(operations.contactUs).toHaveBeenCalledOnce()
 })
 
+it('omits Feedback from the account menu when the deployment configures no questionnaire', async () => {
+  const { contactUs: _omitted, ...operations } = operationsOf({ status: 'signed-out', attempt: null })
+  const { AccountMenu } = await import('../src/client/AccountMenu.tsx')
+  render(<AccountMenu {...({} as GlobalStandardProps)} {...operations} settingsOpen={false}
+    useAccount={selector => selector(operations.hooks.account.getSnapshot())}
+    useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={() => {}}
+    t={key => key in en ? en[key as AccountKey] : key} />)
+  fireEvent.click(screen.getByRole('button', { name: en.menu }))
+  expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([en.settings, en.signIn])
+})
+
 it.each([true, false])('keeps the account inset local through sign-in changes with wide=%s', async (wide) => {
   const { AccountMenu } = await import('../src/client/AccountMenu.tsx')
   let operations = operationsOf({ status: 'signed-out', attempt: null })

@@ -35,12 +35,18 @@ Scope, as decided by the owner (2026-11-04):
 A build given to anyone must not keep talking to DeepSeek. Each item below is on by default upstream:
 - **Auto-update.** Packaged apps poll a fixed feed on `download.deepseek.com` about every ten minutes and accept a
   mandatory update policy from DeepSeek. Left alone, it would replace Peto's build with DeepSeek's. Point it at Peto's
-  own feed (for example GitHub Releases) or disable it. See `apps/desktop/README.md#updates`.
-- **Desktop product analytics.** `packages/client/product-analytics` reports selected interactions through the OTel
-  product exporter by default, with no user-facing switch. Disable it or point it at Peto.
+  own feed (for example GitHub Releases) or disable it. See `apps/desktop/README.md#updates`. **The owner handles this
+  one**; the artifact names (`deepseek-harness-<version>-…`) go with it.
+- **Desktop product analytics.** Off (stage 3, see "DeepSeek services cut").
+- **Session telemetry.** Off (stage 3): it released the Session log behind every feedback rating to DeepSeek's
+  collector.
+- **Feedback questionnaire.** Off (stage 3): the account menu's Feedback opened DeepSeek's Feishu form prefilled with
+  the account id and device details.
 - **DeepSeek account and Platform pages.** `packages/credentials/deepseek-account-platform`,
   `packages/llm/llm-deepseek-account` and the embedded Platform views use `platform.deepseek.com` and `api.deepseek.com`.
-  Replaced by Peto sign-in (next section).
+  Replaced by Peto sign-in (next section); with it the Platform pages never open.
+- **Kept, because the user chooses them:** the DeepSeek model provider and DeepSeek web search behind the user's own
+  DeepSeek API key (Add API key), and links to DeepSeek's API docs in those settings. Without a key they make no request.
 - **Windows signing.** `apps/desktop/windows-signing` targets DeepSeek's certificate. Unsigned builds work but trigger
   SmartScreen; that is acceptable for the owner's own use.
 
@@ -121,7 +127,8 @@ device token lives on the user's machine, stored through the harness's credentia
 2. Branding: Welcome screen, app name, icons, tray and installer names, About credit. Mockups first. Done: Welcome
    screen, the agent's own introduction, the name in text ("App name" below), the in-app mark ("Brand mark") and the
    app, tray, installer and Web icons ("App icons"). Left: the experimental liveshare viewer still draws the whale.
-3. Cut DeepSeek services: update feed, analytics, Platform pages.
+3. Cut DeepSeek services: analytics, Session telemetry and the Feedback questionnaire are off ("DeepSeek services
+   cut"); the update feed is the owner's.
 4. Peto sign-in: Peto-Web gateway (deployed), sign-in and model route here (built; the owner signed in with Peto and
    chatted with model `peto` in `dev:desktop` on 2026-11-05), then the account card.
 5. Benchmark runner in agent-cli/evals.
@@ -225,3 +232,23 @@ device token lives on the user's machine, stored through the harness's credentia
     SVG built on the same tile defs; no script for them is committed, so redo them the same way if the mark changes.
   - Checked: tray-icon, installer-packaging, main-startup and tray specs, the Web `app-icons` spec and
     `pwa-manifest.e2e.ts` (maskable safe circle) pass. The NSIS installer itself was not built.
+- DeepSeek services cut (stage 3, 2026-11-05; the update feed stays with the owner):
+  - `packages/bundle/base/cordis.patch.yml`: `session-telemetry-otel` is `disabled: true`. In `FEEDBACK_ONLY` mode it
+    sent the Session log prefix behind each Like/Dislike or `/feedback` to `dsh-otel-collector.deepseeksvc.com`.
+    Ratings still record in the local Session log. `packages/client/ui-message-feedback` (eight languages): the
+    dialog hint no longer promises to send the conversation log ("Your rating and notes are saved with this
+    conversation and are not sent anywhere."); its client spec and `message-feedback.e2e.ts` follow. Revisit that line
+    if telemetry is ever pointed at a Peto collector.
+  - `packages/bundle/web-app/cordis.patch.yml`: `desktop-product-telemetry` and `product-analytics` are `disabled: true`
+    in every profile (upstream enabled them for `desktop`; their exporter's only destination is the same collector).
+    Electron treats the missing analytics policy as disabled. `ui-settings-account` gets `contactFormUrl: ''`.
+  - `packages/client/ui-settings-account`: `contactFormUrl` also accepts `''`, which leaves `contactUs` undefined and
+    the account menu without Feedback (`contact-config.ts`, `client/index.ts`, `AccountSection.tsx`,
+    `AccountMenu.tsx`, both READMEs). The upstream default is still the Feishu form.
+  - Tests: `packages/bundle/base/tests/base.spec.ts` expects the telemetry row disabled;
+    `packages/bundle/web-app/tests/product-analytics.spec.ts` now checks both rows stay off in `desktop` and `web`;
+    new `packages/bundle/web-app/tests/peto-privacy.spec.ts` pins all three switches; `apps/web/tests/scaffold.ts`
+    enables the telemetry row when a scenario brings its own loopback collector, so `feedback-release.e2e.ts` still
+    exercises the pipeline; new empty-URL cases in the account `apply`, `account` and `contact-url` specs.
+  - Checked at runtime: `dsh web` with a throwaway home and an outbound-connection logger, browsing the UI, the
+    account menu and Settings, contacted only `127.0.0.1`. The Desktop profile itself was not launched.

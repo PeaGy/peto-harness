@@ -50,6 +50,8 @@ it('opens a configured form and omits unavailable context', () => {
   expect(url.searchParams.get('hide_harness_version')).toBe('1')
   expect(url.searchParams.get('hide_device_info')).toBe('1')
   expect(() => ContactConfig({ contactFormUrl: 'javascript:alert(1)' })).toThrow()
+  // An empty URL is the deployment's way to configure no questionnaire.
+  expect(ContactConfig({ contactFormUrl: '' }).contactFormUrl).toBe('')
 })
 
 it.each([NaN, Infinity])('uses CSS pixel dimensions when device pixel ratio is %s', (pixelRatio) => {

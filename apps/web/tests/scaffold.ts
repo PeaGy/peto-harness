@@ -627,10 +627,13 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // to the production OTLP endpoint (or whatever DSH_TELEMETRY_OTLP_URL
     // names in the ambient environment). A scenario with a local collector
     // preserves the shipped disabled setting instead of overriding it.
+    // Peto ships the row disabled (peto-privacy.spec.ts pins that), so a
+    // scenario-owned collector enables it to keep exercising the pipeline.
     options.telemetryUrl === undefined
       ? { id: 'session-telemetry-otel', disabled: true }
       : {
         id: 'session-telemetry-otel',
+        disabled: false,
         config: {
           mode: options.telemetryMode ?? 'FEEDBACK_ONLY',
           exporter: { url: options.telemetryUrl },

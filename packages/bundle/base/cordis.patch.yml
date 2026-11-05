@@ -218,8 +218,11 @@
     # active request slot. The outer 3s shutdown deadline stops queued sends;
     # large prefixes or an unsettled transport may leave records unsent.
     # Every CLI exit path drains by disposing the root on SIGINT/SIGTERM.
+    # Peto: off. Its only destination is DeepSeek's collector, which would receive the Session log behind every
+    # feedback rating; ratings stay in the local Session log.
     - id: session-telemetry-otel
       name: '@deepseek-ai/dsh-session-telemetry-otel'
+      disabled: true
       config:
         mode: !!js process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'
         shutdownTimeoutMillis: 3000
