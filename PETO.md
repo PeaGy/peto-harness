@@ -132,7 +132,9 @@ device token lives on the user's machine, stored through the harness's credentia
 3. Cut DeepSeek services: analytics, Session telemetry and the Feedback questionnaire are off ("DeepSeek services
    cut"); the update feed is the owner's.
 4. Peto sign-in: Peto-Web gateway (deployed), sign-in and model route here (built; the owner signed in with Peto and
-   chatted with model `peto` in `dev:desktop` on 2026-11-05), then the account card.
+   chatted with model `peto` in `dev:desktop` on 2026-11-05). Tool calls through the gateway confirmed on 2026-11-06
+   with the installed 0.2.2-rc.1.20261106.2 (`dsh --profile web`): model `peto` read two files, edited one and ran
+   the tests in one turn of four steps. Left: the account card.
 5. Benchmark runner in agent-cli/evals.
 
 ## Peto changes to upstream files
@@ -195,8 +197,10 @@ device token lives on the user's machine, stored through the harness's credentia
   - Installer: `apps/desktop/installer/locales/*.json` (eight) and `extract-report.h`.
 - Release branding (2026-11-06). Upstream builds unsigned packages with the local client profile ("DSH Local Build"
   label, version and commit badge, window title) so a test artifact never passes for a release. Every Peto release is
-  unsigned, so `apps/desktop/scripts/package-target.ts` builds the official profile in every mode: the sidebar shows
-  the mark with "Peto Agent" and the window is titled "Peto Agent" (`tests/package-target-stages.spec.ts`). The
+  unsigned, so `apps/desktop/scripts/package-target.ts` builds the official profile in every mode, and
+  `pack-local-packages.ts` (which stages the unsigned build's packages) requires it: the sidebar shows
+  the mark with "Peto Agent" and the window is titled "Peto Agent" (`tests/package-target-stages.spec.ts`,
+  `tests/pack-local-packages.spec.ts`). The
   official profile changes only that branding (`ui-brand-peto`, `ui-layout`, `ui-sidebar`); local Web and
   `dev:desktop` builds keep the local label. `apps/desktop/packaging/README.md` still describes upstream.
 - Separate data (2026-11-06). The first release shared everything with an installed DeepSeek Harness: Electron
