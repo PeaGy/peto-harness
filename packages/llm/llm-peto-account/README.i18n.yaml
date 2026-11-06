@@ -3,20 +3,68 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/llm/llm-peto-account/README.md
 /:
-  en: 56605a5e12015672
-  zh: a0c12e918943544c
+  en: 35b15d02f9d4cca4
+  zh: bff89188041b78d4
 /deepseek-ai-dsh-llm-peto-account:
   en: 92eddbcbbd337957
   zh: bccc45b62a6347c2
 /deepseek-ai-dsh-llm-peto-account/summary:
-  en: 66e0d8dc53afa022
-  zh: d2d54e819efb4889
+  en: 33192fff41dcddf3
+  zh: 5c73f3a73bad87b7
 /deepseek-ai-dsh-llm-peto-account/table-of-contents:
-  en: db86bee7a19e2029
-  zh: dc0686587370e785
+  en: 76368b6b1da79c80
+  zh: 52384aee991ac542
 /deepseek-ai-dsh-llm-peto-account/use-this-package:
-  en: 3f91b84c63a379ac
-  zh: aa0073465620230f
+  en: 73cf696e46119912
+  zh: 861f5ba68d6f237e
+/deepseek-ai-dsh-llm-peto-account/use-this-package/search-the-web:
+  en: 17ccac845cc8ac51
+  zh: 39f96f84130a8479
+/deepseek-ai-dsh-llm-peto-account/understand-the-implementation:
+  en: f566197253c47d71
+  zh: ba0950c80ba92b2b
+/deepseek-ai-dsh-llm-peto-account/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-llm-peto-account/model-experience/authenticated-model-requests:
+  en: 5cf024f0d3370159
+  zh: ed480db8f348a42f
+/deepseek-ai-dsh-llm-peto-account/model-experience/authenticated-model-requests/what-the-model-sees:
+  en: ae6d4be95c3e0db5
+  zh: e3b66d6fd01d74b6
+/deepseek-ai-dsh-llm-peto-account/model-experience/authenticated-model-requests/token-effect:
+  en: 411a666c1014cce3
+  zh: b42bc4a42781b435
+/deepseek-ai-dsh-llm-peto-account/model-experience/authenticated-model-requests/kv-cache-effect:
+  en: b08b091ec96ed2f2
+  zh: c64639c2b97f71df
+/deepseek-ai-dsh-llm-peto-account/model-experience/conversation-tool-results:
+  en: dfd3b61aff4a8aa8
+  zh: 06e2b6cc71f461e2
+/deepseek-ai-dsh-llm-peto-account/model-experience/conversation-tool-results/what-the-model-sees:
+  en: 25a31b54607cca36
+  zh: d23602c7582d47e5
+/deepseek-ai-dsh-llm-peto-account/model-experience/conversation-tool-results/token-effect:
+  en: 449eb19505f8fe78
+  zh: 98cfbcf1a59c1011
+/deepseek-ai-dsh-llm-peto-account/model-experience/conversation-tool-results/kv-cache-effect:
+  en: 54ed534b58469807
+  zh: af1754077437146e
+/deepseek-ai-dsh-llm-peto-account/model-experience/conversation-tool-list-indirectly:
+  en: ddcce72a4a4e0def
+  zh: 338aa339f5708d7d
+/deepseek-ai-dsh-llm-peto-account/model-experience/conversation-tool-list-indirectly/what-the-model-sees:
+  en: 92b98085bc84b692
+  zh: eaff81135f26adb8
+/deepseek-ai-dsh-llm-peto-account/model-experience/conversation-tool-list-indirectly/token-effect:
+  en: 4e75bf3d1e75e28c
+  zh: cae67eef7db60b7d
+/deepseek-ai-dsh-llm-peto-account/model-experience/conversation-tool-list-indirectly/kv-cache-effect:
+  en: 4d0077e92db9a7a8
+  zh: 0fce53c5bd992d29
 /deepseek-ai-dsh-llm-peto-account/known-limitations-and-deferred-work:
-  en: c0d59aec5fdced9e
-  zh: 0eb7fae94e5f0c94
+  en: e3dc33a5a2baf19c
+  zh: 7a8ba98dc5116534
+/deepseek-ai-dsh-llm-peto-account/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

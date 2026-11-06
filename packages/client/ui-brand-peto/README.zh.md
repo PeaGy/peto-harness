@@ -17,6 +17,7 @@ kind: "package-reference"
 - [了解实现](#understand-the-implementation)
 - [模型体验](#model-experience)
 - [已知限制与后续工作](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
 
 <a id="use-this-package"></a>
 ## 使用本包
@@ -45,4 +46,13 @@ kind: "package-reference"
 
 - **只有一套几何** — 简化后的标志针对 24–40 px 的插槽调整；更大的插槽需要保留头发高光的描绘版本。
 - **没有首页动画** — 官方包中点击触发的鲸鱼没有被替换；空白首页保持静止。
-- **应用图标另行处理** — 窗口、任务栏、托盘、安装程序和网站图标不是插槽，仍需各自的 Peto 图稿。
+
+<a id="dev-note"></a>
+### 开发备注
+
+<details>
+<summary>维护者的工作上下文——点击展开</summary>
+
+无。
+
+</details>

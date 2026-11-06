@@ -17,6 +17,7 @@ Fill the brand slots with Peto's mark instead of DeepSeek's whale. The mark is t
 - [Understand the implementation](#understand-the-implementation)
 - [Model Experience](#model-experience)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
 
 <a id="use-this-package"></a>
 ## Use this package
@@ -45,4 +46,13 @@ None; this package neither assembles nor sends a provider request.
 
 - **One geometry** — the simplified mark is tuned for the 24–40 px slots; a larger slot would want the traced version with the hair highlights.
 - **No home animation** — the official package's click-triggered whale is not replaced; the blank home stays still.
-- **App icons are separate** — the window, taskbar, tray, installer and favicon images are not slots and still need their own Peto artwork.
+
+<a id="dev-note"></a>
+### Dev Note
+
+<details>
+<summary>Working context for maintainers — click to expand</summary>
+
+None.
+
+</details>
