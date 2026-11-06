@@ -47,6 +47,8 @@ interface Gateway {
   origin: string
   baseURL: string
   listing: { status: number; body?: unknown }
+  /** Error answer to `/responses`, in the gateway's OpenAI shape; absent streams {@link REPLY}. */
+  failure?: { status: number; body: unknown }
   requests: Array<{ path: string | undefined; authorization: string | undefined; body: unknown }>
 }
 
@@ -59,6 +61,9 @@ async function gateway(): Promise<Gateway> {
     if (req.method === 'GET' && req.url === '/api/agent/v1/models') {
       res.writeHead(state.listing.status, { 'content-type': 'application/json' })
         .end(state.listing.body === undefined ? 'not json' : JSON.stringify(state.listing.body))
+    } else if (req.method === 'POST' && req.url === '/api/agent/v1/responses' && state.failure !== undefined) {
+      res.writeHead(state.failure.status, { 'content-type': 'application/json', 'x-should-retry': 'false' })
+        .end(JSON.stringify(state.failure.body))
     } else if (req.method === 'POST' && req.url === '/api/agent/v1/responses') {
       res.writeHead(200, { 'content-type': 'text/event-stream' })
         .end(REPLY.map(event => `data: ${JSON.stringify(event)}\n\n`).join(''))
@@ -123,6 +128,19 @@ it('streams a reply through the gateway with the device token', async () => {
   const call = server.requests.find(row => row.path === '/api/agent/v1/responses')
   expect(call?.authorization).toBe(`Bearer ${TOKEN}`)
   expect(call?.body).toMatchObject({ model: 'peto', stream: true, reasoning: { effort: 'high' } })
+})
+
+it('reports used-up daily steps as the account quota and leaves other failures alone', async () => {
+  const server = await gateway()
+  const { ctx } = await host(server)
+  server.failure = { status: 429, body: { error: {
+    message: 'Hôm nay tài khoản đã dùng hết 200 bước Peto Agent.', type: 'insufficient_quota', code: 'insufficient_quota', param: null,
+  } } }
+  expect((await assemble(ctx, 'peto')).finish).toMatchObject({ kind: 'error', failure: { code: 'ACCOUNT_QUOTA' } })
+  server.failure = { status: 400, body: { error: {
+    message: 'Phiên đã quá 10.000 mục.', type: 'invalid_request_error', code: 'context_length_exceeded', param: null,
+  } } }
+  expect((await assemble(ctx, 'peto')).finish).toMatchObject({ kind: 'error', failure: { code: 'CONTEXT_WINDOW_EXCEEDED' } })
 })
 
 it('prepares a call against a listing loaded on demand', async () => {

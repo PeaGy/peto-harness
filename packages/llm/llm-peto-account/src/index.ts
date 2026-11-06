@@ -14,7 +14,7 @@
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
-import { LlmError, resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
+import { ACCOUNT_QUOTA_EXCEEDED_CODE, LlmError, QUOTA_EXCEEDED_CODE, resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmModelInfo, LlmResolvedModelInfo, PreparedAdapterCall, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-deepseek-account'
 import type {} from '@deepseek-ai/dsh-fs'
@@ -82,13 +82,27 @@ class PetoAdapter extends PiAiAdapter {
 
   override async prepareCall(provider: string, model: string, signal?: AbortSignal): Promise<PreparedAdapterCall> {
     await this.prepare()
-    return super.prepareCall(provider, model, signal)
+    const call = await super.prepareCall(provider, model, signal)
+    return { ...call, stream: options => accountQuota(call.stream(options)) }
   }
 
   // A request sent before the first listing arrives would otherwise meet an empty catalog.
   override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     await this.prepare()
-    yield * super.stream(options)
+    yield * accountQuota(super.stream(options))
+  }
+}
+
+/**
+ * Peto Web's `insufficient_quota` means the account's daily Peto Agent steps are used up: an account quota, which the
+ * account feature explains with the reset time, as DeepSeek's account route does for its balance.
+ * @param chunks - one streamed reply.
+ * @returns the same chunks, with a provider quota failure recoded as the account quota.
+ */
+async function * accountQuota(chunks: AsyncIterable<StreamChunk>): AsyncIterable<StreamChunk> {
+  for await (const chunk of chunks) {
+    if (chunk.type !== 'finish' || chunk.reason.kind !== 'error' || chunk.reason.failure.code !== QUOTA_EXCEEDED_CODE) yield chunk
+    else yield { ...chunk, reason: { ...chunk.reason, failure: { ...chunk.reason.failure, code: ACCOUNT_QUOTA_EXCEEDED_CODE } } }
   }
 }
 

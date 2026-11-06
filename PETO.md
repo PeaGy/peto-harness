@@ -97,9 +97,8 @@ The sign-in and model route in this repo (built 2026-11-05, two new packages):
   one streamed reply through pi-ai. Line coverage 100% / ~90%; branch coverage is below upstream's 100% gate (mostly
   disposal races).
 
-Next: the account card (account name, steps and tokens today from `/me`, "Manage" opens Peto Web → Settings → Peto
-Agent); it still renders DeepSeek's Platform layout over this account. The model-facing web_search/web_fetch tools still
-use DeepSeek's search providers; the gateway runs no web search.
+The account card is built ("Account card" below). The model-facing web_search/web_fetch tools still use DeepSeek's
+search providers; the gateway runs no web search.
 
 Never put Peto's server credentials (xAI, OpenAI, Anthropic keys) in this repository or in a build. Only the user's
 device token lives on the user's machine, stored through the harness's credentials service.
@@ -134,7 +133,8 @@ device token lives on the user's machine, stored through the harness's credentia
 4. Peto sign-in: Peto-Web gateway (deployed), sign-in and model route here (built; the owner signed in with Peto and
    chatted with model `peto` in `dev:desktop` on 2026-11-05). Tool calls through the gateway confirmed on 2026-11-06
    with the installed 0.2.2-rc.1.20261106.2 (`dsh --profile web`): model `peto` read two files, edited one and ran
-   the tests in one turn of four steps. Left: the account card.
+   the tests in one turn of four steps. Account card built 2026-11-06 (owner's pick "B · Thanh hạn mức"), first in
+   0.2.2-rc.1.20261106.4; Peto Web's half (`steps_reset_at`, `?settings=agent`) is deployed (Peto-Web `8c5fb97`).
 5. Benchmark runner in agent-cli/evals.
 
 ## Peto changes to upstream files
@@ -218,8 +218,7 @@ device token lives on the user's machine, stored through the harness's credentia
     or launched last answers it.
   - Client copy: `packages/client/ui-settings-account` (account page and first-run onboarding), `ui-plugin-manager`
     (install warning), `ui-sidebar-documentpreview` (Office preview notice), `packages/experimental/cua` (approval
-    notice). The onboarding credit step and the account page still describe DeepSeek's balance and top-up; that
-    belongs to the account card.
+    notice). The onboarding credit step and the account page are Peto's now ("Account card" below).
   - `packages/client/ui-settings-models`: the first-run "Preview Notice" was DeepSeek's own letter; it is rewritten as
     Peto's notice ("Peto Agent is still in preview … built on DeepSeek Harness 0.2 …") in all eight languages.
   - Local builds: `brand.localBuild` in `packages/client/locale` is "Peto Local Build" (sidebar and window title of
@@ -234,6 +233,33 @@ device token lives on the user's machine, stored through the harness's credentia
     test files were run before and after the change: no new failure, and the onboarding, plugin-install, manifest and
     Preview Notice goldens pass with the new copy. The SDK snapshot lane (`snapshots/sdk`) fails on this machine before
     its runtime-context checks (its replay does not intercept the DeepSeek request), so its absence checks were not run.
+- Account card (stage 4, 2026-11-06; the owner picked "B · Thanh hạn mức" of three mockups,
+  https://claude.ai/artifact/4XMy3XBePSop8KJUthSj1g). Peto accounts are metered in daily Peto Agent steps, so the
+  account surfaces show steps instead of DeepSeek wallets and top-up:
+  - `packages/credentials/deepseek-account/src/types.ts` (shared types, additive): `AccountLinks.manageUrl` (present
+    only on Peto accounts; the UI keys its Peto layout on it), `AccountSteps`/`AccountStepCost`, and optional
+    `steps` on the ready balance. No new RPC: steps travel as the balance, so the controller, liveshare endpoint list
+    and tool-cordis catalogue are unchanged.
+  - `packages/credentials/peto-account`: `getBalance` reads `/api/agent/me` (`steps_used`, `steps_limit`,
+    `steps_reset_at`, `tokens_used`, `models[].label/step_cost`); profile and balance of one refresh share one request.
+    A failed or unusable answer is a failed balance; a 401 expires the credential as before. `manageUrl` is
+    `<server>/?settings=agent`, which Peto Web opens at Settings → Peto Agent (Peto-Web change of 2026-11-06, as is
+    `steps_reset_at`; older servers omit it and the card shows no reset time).
+  - `packages/client/ui-settings-account`: `PetoSteps.tsx` (+ `.module.css`, `peto-steps.ts`) replaces the balance card:
+    steps left with a meter, reset time in the viewer's zone, today's tokens, steps per request for each model, a note
+    that high effort and above counts double (Peto Web's `STEP_COST`), and "Manage on Peto Web". Low (≤10% left) and
+    out states use the theme's warn and error colours; the fill is the label colour (the mockup's rose is not a theme
+    token). The identity line reads "Peto account · signed in on this computer" and its link "Peto Web"; the signed-out
+    page invites a Peto Web sign-in instead of an API key. `AccountQuotaNotice.tsx` shows "No steps left today" with
+    the reset time and no top-up; `OnboardingCreditStep.tsx`/`DesktopOnboarding.tsx` explain daily steps without the
+    recharge art, and Skip there asks the ordinary skip question. Copy: `locales/peto.ts`, eight languages, spread into
+    `locales.ts`.
+  - `packages/llm/llm-peto-account`: the gateway's `insufficient_quota` arrives from pi-ai as `QUOTA`; the adapter
+    recodes it as `ACCOUNT_QUOTA` (on both `stream` and `prepareCall().stream`), like DeepSeek's account route, so the
+    account notice owns it. Before this, running out showed only the generic "Request quota exhausted." toast.
+  - Tests: `peto-account/tests/account.spec.ts` (shared read, older servers, failures), `llm-peto-account` provider
+    spec (quota recoding), `ui-settings-account/tests/peto.client.spec.tsx` (card states, quota notice, onboarding,
+    helpers). Lint fix in passing: `peto-account` `startSignIn` re-checks `closed` after an await (disable comment).
 - Brand mark (stage 2, 2026-11-05; the owner picked "A. Đặc" of three monochrome mockups): new package
   `packages/client/ui-brand-peto` (`@deepseek-ai/dsh-client-ui-brand-peto`) fills `sidebar.brand.mark` (expanded
   sidebar and collapsed rail) and `conversation.hero.brand.mark` with the Welcome logo traced into one solid

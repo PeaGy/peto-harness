@@ -10,16 +10,27 @@ import artZhDark from './assets/onboarding-recharge-zh-dark.webp'
 import css from './DesktopOnboarding.module.css'
 
 /** @param props - credit facts, localized content and recharge/navigation actions. @returns the credit step. */
-export function OnboardingCreditStep({ t, locale, heading, busy, funded, canRecharge, onContinue, onRecharge, onLater }:
+export function OnboardingCreditStep({ t, locale, heading, busy, funded, canRecharge, peto, onContinue, onRecharge, onLater }:
   Pick<DesktopOnboardingProps, 't' | 'locale'> & {
     heading: RefObject<HTMLHeadingElement>
     busy: boolean
     funded: boolean
     canRecharge: boolean
+    /** Peto: the account is metered in daily steps, so the step explains them and offers no top-up. */
+    peto?: boolean
     onContinue: () => void
     onRecharge: () => void
     onLater: () => void
   }) {
+  if (peto === true) return <div className={`${css.content} ${css.credit}`}>
+    <div className={css.copy}>
+      <h1 id="desktop-onboarding-title" ref={heading} tabIndex={-1}>{t('petoOnboardingTitle')}</h1>
+      <p className={css.heroDescription}>{t('petoOnboardingDescription')}</p>
+      <div className={css.creditActions}>
+        <Button className={css.action} variant="primary" disabled={busy} onClick={onContinue}>{t('onboardingContinue')}</Button>
+      </div>
+    </div>
+  </div>
   return <div className={`${css.content} ${css.credit}`}>
     <OnboardingIllustration className={css.creditIllustration} src={locale === 'zh' ? artZh : art} darkSrc={locale === 'zh' ? artZhDark : artDark} />
     <div className={css.copy}>

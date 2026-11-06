@@ -7,12 +7,13 @@ import Schema from '@deepseek-ai/schemastery'
 import { z } from 'zod'
 import {
   DeepSeekAccount, installAccountTaskCancellation, type AccountBonusBatch, type AccountDetails, type AccountUserId, type AccountView,
-  type AccountBonusOrderId, type AccountClientMetadata, type PlatformSession, type SignInAttemptId, type SignInAttemptView,
+  type AccountBonusOrderId, type AccountClientMetadata, type AccountSteps, type PlatformSession, type SignInAttemptId,
+  type SignInAttemptView,
 } from '@deepseek-ai/dsh-deepseek-account'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { AuthorizationSession } from '@deepseek-ai/dsh-authorization'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
-import { PetoAuthError, PetoDeniedError, me, pollDevice, requestPeto, serverOrigin, started, verificationUrl } from './protocol.ts'
+import { PetoAuthError, PetoDeniedError, me, pollDevice, requestPeto, serverOrigin, started, usage, verificationUrl } from './protocol.ts'
 import type { DevicePoll, PetoResponse } from './protocol.ts'
 
 export { PetoAuthError, PetoDeniedError, serverOrigin, verificationUrl } from './protocol.ts'
@@ -29,6 +30,8 @@ const grant = z.object({
 })
 type Grant = z.infer<typeof grant>
 type ReadyProfile = Extract<AccountDetails['profile'], { status: 'ready' }>
+/** Outcome of one `/api/agent/me` read; `stale` means the credential changed or expired meanwhile. */
+type MeRead = { readonly kind: 'ok'; readonly body: unknown } | { readonly kind: 'failed' } | { readonly kind: 'stale' }
 
 /** Consecutive transient poll failures tolerated before an attempt fails; one more ends it. */
 const POLL_FAILURES = 3
@@ -86,6 +89,8 @@ export class PetoAccount extends DeepSeekAccount {
   private readonly listeners = new Set<(identityOnly: boolean) => void>()
   /** Latest ready profile and the token it was read with, so a cached name never answers for a newer credential. */
   private lastProfile: { readonly token: string; readonly profile: ReadyProfile } | undefined
+  /** The `/api/agent/me` read the profile and balance queries of one refresh share. */
+  private meRead: { readonly token: string; readonly lifetime: AbortController; readonly result: Promise<MeRead> } | undefined
   private detailsLifetime = new AbortController()
   private closed = false
   private removing: Promise<AccountView> | undefined
@@ -142,8 +147,8 @@ export class PetoAccount extends DeepSeekAccount {
       status: stored === undefined ? 'signed-out' : 'credential-stored',
       // Credential removal can notify watchers before sign-out finishes clearing the attempt.
       attempt: stored === undefined && attempt?.phase === 'succeeded' ? null : attempt,
-      // Peto Web keeps usage and devices in its own Settings, opened from the site root.
-      links: { usageUrl: home, topUpUrl: home },
+      // Peto Web keeps usage and devices in Settings → Peto Agent, which `?settings=agent` opens.
+      links: { usageUrl: home, topUpUrl: home, manageUrl: new URL('/?settings=agent', this.origin).href },
     }
   }
 
@@ -152,30 +157,62 @@ export class PetoAccount extends DeepSeekAccount {
     const stored = await this.readCurrentGrant(lifetime)
     if (stored === null) return null
     const fallback = this.lastProfile?.token === stored.token ? this.lastProfile.profile : profileOf(stored, stored.account)
-    let response: PetoResponse
-    try {
-      response = await requestPeto(this.origin, '/api/agent/me', { method: 'GET', token: stored.token },
-        AbortSignal.any([lifetime.signal, AbortSignal.timeout(this.requestTimeout)]))
-    } catch (_failed) {
-      // Timeouts, lost connections and credential changes keep the name read at sign-in.
-      return this.detailsLifetime === lifetime ? fallback : null
-    }
-    if (this.detailsLifetime !== lifetime) return null
-    if (response.status === 401) {
-      await this.expireCredential(stored.token, lifetime)
-      return null
-    }
-    const body = me.safeParse(response.body)
-    if (response.status !== 200 || !body.success) return fallback
+    const read = await this.readMe(stored, lifetime)
+    if (read.kind === 'stale') return null
+    // Timeouts, lost connections and unexpected answers keep the name read at sign-in.
+    const body = read.kind === 'ok' ? me.safeParse(read.body) : undefined
+    if (body?.success !== true) return fallback
     const profile = profileOf(stored, body.data.account)
     this.lastProfile = { token: stored.token, profile }
     return profile
   }
 
   override async getBalance(_client: AccountClientMetadata): Promise<AccountDetails['balance'] | null> {
-    // Peto Web meters daily Agent steps instead of a wallet, so a signed-in account has no balances.
-    const stored = await this.readCurrentGrant(this.detailsLifetime)
-    return stored === null ? null : { status: 'ready', value: [], bonusWallets: [] }
+    // Peto Web meters daily Agent steps instead of a wallet: a signed-in account has no wallets, only steps.
+    const lifetime = this.detailsLifetime
+    const stored = await this.readCurrentGrant(lifetime)
+    if (stored === null) return null
+    const read = await this.readMe(stored, lifetime)
+    if (read.kind === 'stale') return null
+    const body = read.kind === 'ok' ? usage.safeParse(read.body) : undefined
+    if (body?.success !== true) return { status: 'failed' }
+    return { status: 'ready', value: [], bonusWallets: [], steps: stepsOf(body.data) }
+  }
+
+  /**
+   * Read `/api/agent/me` once for the profile and balance queries that one refresh starts together.
+   * @param stored - current grant whose token authorizes the read.
+   * @param lifetime - details lifetime the read belongs to.
+   * @returns the response body, a failure, or `stale` once the credential changed or was rejected.
+   */
+  private readMe(stored: Grant, lifetime: AbortController): Promise<MeRead> {
+    const current = this.meRead
+    if (current?.token === stored.token && current.lifetime === lifetime) return current.result
+    const entry = { token: stored.token, lifetime, result: this.fetchMe(stored, lifetime) }
+    this.meRead = entry
+    void entry.result.finally(() => { if (this.meRead === entry) this.meRead = undefined })
+    return entry.result
+  }
+
+  /**
+   * @param stored - current grant whose token authorizes the read.
+   * @param lifetime - details lifetime the read belongs to.
+   * @returns one `/api/agent/me` outcome; a 401 expires the credential first.
+   */
+  private async fetchMe(stored: Grant, lifetime: AbortController): Promise<MeRead> {
+    let response: PetoResponse
+    try {
+      response = await requestPeto(this.origin, '/api/agent/me', { method: 'GET', token: stored.token },
+        AbortSignal.any([lifetime.signal, AbortSignal.timeout(this.requestTimeout)]))
+    } catch (_failed) {
+      return this.detailsLifetime === lifetime ? { kind: 'failed' } : { kind: 'stale' }
+    }
+    if (this.detailsLifetime !== lifetime) return { kind: 'stale' }
+    if (response.status === 401) {
+      await this.expireCredential(stored.token, lifetime)
+      return { kind: 'stale' }
+    }
+    return response.status === 200 ? { kind: 'ok', body: response.body } : { kind: 'failed' }
   }
 
   override async getUnnotifiedBonuses(_client: AccountClientMetadata): Promise<AccountBonusBatch | null> {
@@ -197,6 +234,7 @@ export class PetoAccount extends DeepSeekAccount {
     if (previous !== undefined) {
       await previous.done
       // Disposal can close the provider while the previous attempt settles.
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- disposal can set `closed` while the attempt is awaited.
       if (this.closed) throw new PetoAuthError('protocol')
       if (this.attempt !== previous) return this.getState()
     }
@@ -418,6 +456,22 @@ export class PetoAccount extends DeepSeekAccount {
   }
 }
 export default PetoAccount
+
+/**
+ * Project the step fields of `/api/agent/me` onto the shared account balance.
+ * @param body - validated step fields.
+ * @returns today's steps; an unreadable reset time is left out.
+ */
+function stepsOf(body: z.infer<typeof usage>): AccountSteps {
+  const reset = body.steps_reset_at === undefined ? Number.NaN : Date.parse(body.steps_reset_at)
+  return {
+    used: Math.min(body.steps_used, body.steps_limit),
+    limit: body.steps_limit,
+    ...Number.isNaN(reset) ? {} : { resetsAt: new Date(reset).toISOString() },
+    tokens: body.tokens_used,
+    costs: body.models.map(model => ({ model: model.label, steps: model.step_cost })),
+  }
+}
 
 /** Project the stored device onto the account profile shared with DeepSeek's UI. */
 function profileOf(stored: Grant, account: string): ReadyProfile {

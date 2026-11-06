@@ -33,6 +33,11 @@ export interface SignInAttemptView {
 export interface AccountLinks {
   readonly usageUrl: string
   readonly topUpUrl: string
+  /**
+   * Peto: the Peto Web page listing this account's devices and daily steps. Present only on Peto accounts, which are
+   * metered in daily steps ({@link AccountSteps}) instead of wallets.
+   */
+  readonly manageUrl?: string
 }
 /** Stored-account presence is not a claim that the server has validated its token. */
 export interface AccountView {
@@ -56,10 +61,32 @@ export interface AccountWallet {
   readonly currency: 'CNY' | 'USD'
   readonly balance: string
 }
+/** Peto: one model the account may use and the steps one request to it costs at normal effort. */
+export interface AccountStepCost {
+  readonly model: string
+  readonly steps: number
+}
+/** Peto: today's Peto Agent usage, which stands in for a wallet balance on Peto accounts. */
+export interface AccountSteps {
+  readonly used: number
+  readonly limit: number
+  /** Instant the daily count restarts, absent from servers that do not report it. */
+  readonly resetsAt?: string
+  /** Input and output tokens counted today, the conversation resent at every step included. */
+  readonly tokens: number
+  /** Cost per request for each model the account may use, in server order. */
+  readonly costs: readonly AccountStepCost[]
+}
 /** Independent query outcomes allow profile and balance failures to render separately. */
 export interface AccountDetails {
   readonly profile: { readonly status: 'ready'; readonly value: AccountProfile } | { readonly status: 'failed' }
-  readonly balance: { readonly status: 'ready'; readonly value: readonly AccountWallet[]; readonly bonusWallets: readonly AccountWallet[] } | { readonly status: 'failed' }
+  readonly balance: {
+    readonly status: 'ready'
+    readonly value: readonly AccountWallet[]
+    readonly bonusWallets: readonly AccountWallet[]
+    /** Peto: daily steps, present only on Peto accounts. */
+    readonly steps?: AccountSteps
+  } | { readonly status: 'failed' }
 }
 
 /** Identity of one granted bonus order; stable across devices and sign-ins. */

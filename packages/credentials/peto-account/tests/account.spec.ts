@@ -19,6 +19,16 @@ afterEach(async () => {
 
 const client: AccountClientMetadata = { version: '1.2.3', locale: 'en', timezoneOffsetSeconds: 25_200 }
 const TOKEN = 'peto_fixture-device-token'
+/** `GET /api/agent/me` as Peto Web serves it, trimmed to the fields this provider reads. */
+const ME = {
+  account: 'Ada Lovelace', device_name: 'Workstation', steps_used: 3, steps_limit: 200,
+  steps_reset_at: '2026-11-07T00:00:00+07:00', tokens_used: 123_456,
+  models: [{ key: 'peto', label: 'Peto', step_cost: 1 }, { key: 'terra', label: '5.6 Terra', step_cost: 2 }],
+}
+const STEPS = {
+  used: 3, limit: 200, resetsAt: '2026-11-06T17:00:00.000Z', tokens: 123_456,
+  costs: [{ model: 'Peto', steps: 1 }, { model: '5.6 Terra', steps: 2 }],
+}
 
 type Reply = { status: number; body?: unknown }
 interface Server {
@@ -37,7 +47,7 @@ async function peto(): Promise<Server> {
     origin: '',
     polls: [{ status: 428 }, { status: 200, body: { token: TOKEN, device_id: 'device-1', device_name: 'Workstation', account: 'Ada' } }],
     start: { status: 200, body: { device_code: 'd'.repeat(24), user_code: 'ABCD-EFGH', verification_url: null, expires_in: 600, interval: 0.01 } },
-    me: { status: 200, body: { account: 'Ada Lovelace', steps_used: 3 } },
+    me: { status: 200, body: ME },
     hold: false,
     received: [],
   }
@@ -111,7 +121,9 @@ it('signs in through the device code and scopes the token to the configured serv
   expect((await f.account.startSignIn(client, 'http://127.0.0.1:1', 'web')).attempt?.id).toBe(started.attempt?.id)
   const done = await f.wait('succeeded')
   expect(done.status).toBe('credential-stored')
-  expect(done.links).toEqual({ usageUrl: `${server.origin}/`, topUpUrl: `${server.origin}/` })
+  expect(done.links).toEqual({
+    usageUrl: `${server.origin}/`, topUpUrl: `${server.origin}/`, manageUrl: `${server.origin}/?settings=agent`,
+  })
   expect(server.received[0]).toMatchObject({ method: 'POST', path: '/api/agent/device/start', body: { name: 'Workstation' } })
   expect(server.received.filter(row => row.path === '/api/agent/device/token').map(row => row.body))
     .toEqual([{ device_code: 'd'.repeat(24) }, { device_code: 'd'.repeat(24) }])
@@ -122,7 +134,7 @@ it('signs in through the device code and scopes the token to the configured serv
     status: 'ready', value: { id: 'device-1', name: 'Ada Lovelace', contact: null, avatarUrl: null },
   })
   expect(server.received.find(row => row.path === '/api/agent/me')?.authorization).toBe(`Bearer ${TOKEN}`)
-  expect(await f.account.getBalance(client)).toEqual({ status: 'ready', value: [], bonusWallets: [] })
+  expect(await f.account.getBalance(client)).toEqual({ status: 'ready', value: [], bonusWallets: [], steps: STEPS })
   expect(await f.account.getUnnotifiedBonuses(client)).toEqual({ accountId: 'device-1', bonuses: [] })
   const shared: DeepSeekAccount = f.account
   expect(await shared.ackBonusNotified('device-1' as AccountUserId, 'order' as AccountBonusOrderId, client)).toBe(false)
@@ -295,6 +307,38 @@ it('keeps the name read at sign-in when the profile cannot be refreshed', async 
   expect(await f.account.getProfile(client)).toMatchObject({ value: { name: 'Ada Lovelace' } })
   await f.dispose()
   expect(await f.account.getProfile(client)).toBeNull()
+})
+
+it('reads the profile and the steps of one refresh with a single request', async () => {
+  const server = await peto()
+  const f = await signedIn(server)
+  const before = server.received.filter(row => row.path === '/api/agent/me').length
+  const [profile, balance] = await Promise.all([f.account.getProfile(client), f.account.getBalance(client)])
+  expect(profile).toMatchObject({ status: 'ready', value: { name: 'Ada Lovelace' } })
+  expect(balance).toEqual({ status: 'ready', value: [], bonusWallets: [], steps: STEPS })
+  expect(server.received.filter(row => row.path === '/api/agent/me')).toHaveLength(before + 1)
+  // A later refresh reads again.
+  await f.account.getBalance(client)
+  expect(server.received.filter(row => row.path === '/api/agent/me')).toHaveLength(before + 2)
+})
+
+it('reports steps without a reset time from older servers and fails the balance on unusable answers', async () => {
+  const server = await peto()
+  const f = await signedIn(server)
+  const { steps_reset_at: _reset, ...older } = ME
+  server.me = { status: 200, body: { ...older, steps_used: 250 } }
+  const { resetsAt: _resetsAt, ...withoutReset } = STEPS
+  expect(await f.account.getBalance(client)).toEqual({
+    status: 'ready', value: [], bonusWallets: [], steps: { ...withoutReset, used: 200 },
+  })
+  server.me = { status: 200, body: { ...ME, steps_reset_at: 'tomorrow' } }
+  expect(await f.account.getBalance(client)).toEqual({ status: 'ready', value: [], bonusWallets: [], steps: withoutReset })
+  server.me = { status: 200, body: { account: 'Ada Lovelace' } }
+  expect(await f.account.getBalance(client)).toEqual({ status: 'failed' })
+  server.me = { status: 500 }
+  expect(await f.account.getBalance(client)).toEqual({ status: 'failed' })
+  vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'))
+  expect(await f.account.getBalance(client)).toEqual({ status: 'failed' })
 })
 
 it('keeps the stored name when the profile request cannot reach the server', async () => {

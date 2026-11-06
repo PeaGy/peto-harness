@@ -5,6 +5,8 @@ import type { InjectFace, HostObservable, PropsLocale, PropsRuntime } from '@dee
 import type { QuotaNoticeOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { AccountSnapshot } from './AccountSection.tsx'
 import type { PlatformPageClaim, PlatformPages } from './platform-pages.ts'
+import { formatResetTime } from './peto-steps.ts'
+import css from './AccountSection.module.css'
 
 /** Injected share of the account route's frame-wide quota notice entry. */
 export interface AccountQuotaNoticeInjected {
@@ -31,6 +33,9 @@ export function AccountQuotaNotice({ matched, openPlatformPage, useAccount, useP
   const accountStatus = useAccount(snapshot => snapshot.view?.status)
   const accountFailed = useAccount(snapshot => snapshot.failed)
   const signedIn = accountStatus === 'credential-stored'
+  // Peto: a Peto account's quota is its daily steps, explained here instead of a top-up offer.
+  const manageUrl = useAccount(snapshot => snapshot.view?.links.manageUrl)
+  const steps = useAccount(snapshot => snapshot.details?.balance?.status === 'ready' ? snapshot.details.balance.steps : undefined)
   const platformPage = usePlatformPage(current => current)
   const [opened, setOpened] = useState(false)
   const previousSignedIn = useRef(signedIn)
@@ -59,6 +64,16 @@ export function AccountQuotaNotice({ matched, openPlatformPage, useAccount, useP
   // notice before the native account action becomes available. A terminal stream
   // failure ends that wait and leaves the generic warning available.
   if (accountStatus === undefined && !accountFailed && openPlatformPage !== undefined) return null
+  if (signedIn && manageUrl !== undefined) {
+    const time = formatResetTime(steps?.resetsAt)
+    return <Modal open title={t('petoQuotaTitle')} closeLabel={t('close')} onClose={dismiss}
+      description={steps !== undefined && time !== undefined
+        ? t('petoQuotaDescription', { limit: steps.limit, time }) : t('petoQuotaDescriptionMidnight')}
+      footer={<>
+        <a className={css.linkButton} href={manageUrl} target="_blank" rel="noopener noreferrer">{t('petoManage')}</a>
+        <Button variant="primary" onClick={dismiss}>{t('close')}</Button>
+      </>} />
+  }
   // Signed out, unavailable, or without the native host, use generic notice copy.
   if (!signedIn || openPlatformPage === undefined) {
     return <Toast text={message} icon={<IconWarningOutlineRegular size={18} />} onDone={dismiss} />

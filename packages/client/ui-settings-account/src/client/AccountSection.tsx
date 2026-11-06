@@ -11,6 +11,7 @@ import { AccountAvatar } from './AccountAvatar.tsx'
 import type { AccountAvatarSnapshot } from './account-avatar.ts'
 import { authorizeUrlWithTheme } from './authorize-url.ts'
 import type { BonusNotice } from './bonus-notices.ts'
+import { PetoSteps } from './PetoSteps.tsx'
 import css from './AccountSection.module.css'
 
 /** Safe account snapshot shared by the settings page and launcher. */
@@ -110,6 +111,8 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
   const active = attempt !== null && attempt !== undefined
     && ['initializing', 'waiting-browser', 'exchanging', 'committing'].includes(attempt.phase)
   const signedIn = state?.status === 'credential-stored'
+  // Peto: Peto accounts are metered in daily steps and managed on Peto Web.
+  const manageUrl = state?.links.manageUrl
   useEffect(() => () => { releasePage.current?.(); releasePage.current = undefined }, [])
   useEffect(() => {
     if (signedIn) return
@@ -148,14 +151,17 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
   const status = failed || streamFailed || attempt?.phase === 'failed' ? t('failed')
     : attempt?.phase === 'expired' ? t('expired')
       : active ? t(attempt.phase === 'initializing' ? 'initializing' : attempt.phase === 'waiting-browser' ? 'waiting' : 'completing')
-        : signedIn ? profile?.contact ?? t(details?.profile === undefined ? 'loading' : 'profileUnavailable') : t('signInDescription')
+        : signedIn ? profile?.contact ?? t(details?.profile === undefined ? 'loading' : manageUrl !== undefined ? 'petoAccount' : 'profileUnavailable')
+          : t('signInDescription')
+  const petoSteps = signedIn && manageUrl !== undefined
+    ? <PetoSteps balance={details?.balance} manageUrl={manageUrl} t={t} /> : null
   if (!signedIn && !active) return (
     <section className={css.signedOut} aria-label={t('nav')}>
       <div className={css.signedOutContent}>
         <div className={css.signedOutCopy}>
           <span className={css.signedOutTitle}>{t('settingsSignedOutTitle')}</span>
           <span className={css.signedOutDescription} role="status">
-            {failed || streamFailed ? t('failed') : t('settingsSignedOutDescription')}
+            {failed || streamFailed ? t('failed') : t(manageUrl !== undefined ? 'petoSignedOutDescription' : 'settingsSignedOutDescription')}
           </span>
         </div>
         <Button variant="primary" className={css.signInButton} disabled={busy || state === undefined}
@@ -176,7 +182,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
           </div>
         </div>
         {signedIn && <a className={css.accountInfo} href={new URL('/', state.links.usageUrl).href} target="_blank" rel="noopener noreferrer">
-          {t('accountInfo')}<IconRightUpOutlineRegular size={12} />
+          {t(manageUrl !== undefined ? 'petoWeb' : 'accountInfo')}<IconRightUpOutlineRegular size={12} />
         </a>}
       </div>
       {active && <div className={css.actions}>
@@ -187,7 +193,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
         <Button variant="outline" disabled={busy || attempt.phase === 'committing'}
           onClick={() => { void run(() => cancel(attempt.id)) }}>{t('cancel')}</Button>
       </div>}
-      <div className={css.balanceCard}>
+      {manageUrl !== undefined ? petoSteps : <div className={css.balanceCard}>
         <div className={css.row}>
           <span>{t('balance')}</span>
           {signedIn && wallets !== undefined && wallets.length > 0
@@ -223,7 +229,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
               onClick={(event) => { if (openPlatformPage !== undefined && signedIn) { event.preventDefault(); showPage(openPlatformPage, 'top-up') } }}>{t('topUp')}</a>
           </div>
         </div>
-      </div>
+      </div>}
     </section>
   )
 }

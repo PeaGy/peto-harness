@@ -1,0 +1,110 @@
+/* Peto: daily steps inside the account balance card; spacing follows AccountSection.module.css rows. */
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.headline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.count {
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.headline.out {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.out {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.low {
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.track {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--dsw-alias-border-l2);
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dsw-alias-label-primary);
+}
+
+[data-step-level="low"] .fill {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+[data-step-level="out"] .fill {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.costs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.label {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.costList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cost {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md);
+}
+
+.cost > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.value {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.manage {
+  gap: 4px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fill {
+    transition: width 0.3s ease;
+  }
+}

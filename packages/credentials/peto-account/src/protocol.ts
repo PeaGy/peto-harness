@@ -49,6 +49,15 @@ export const issued = z.object({
 /** Display fields of `GET /api/agent/me`; other fields are discarded. */
 export const me = z.object({ account: z.string().min(1) })
 
+/** Daily step fields of `GET /api/agent/me`; Peto Web servers before 2026-11-06 omit `steps_reset_at`. */
+export const usage = z.object({
+  steps_used: z.number().int().nonnegative(),
+  steps_limit: z.number().int().positive(),
+  steps_reset_at: z.string().optional(),
+  tokens_used: z.number().int().nonnegative(),
+  models: z.array(z.object({ label: z.string().min(1), step_cost: z.number().int().positive() })),
+})
+
 /**
  * Choose the approval page for one device code. Peto Web returns an absolute link only when its frontend address is
  * configured; otherwise the page is the server root with the code in `agent_code`.
