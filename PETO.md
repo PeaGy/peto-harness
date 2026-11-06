@@ -36,7 +36,9 @@ A build given to anyone must not keep talking to DeepSeek. Each item below is on
 - **Auto-update.** Packaged apps poll a fixed feed on `download.deepseek.com` about every ten minutes and accept a
   mandatory update policy from DeepSeek. Left alone, it would replace Peto's build with DeepSeek's. Point it at Peto's
   own feed (for example GitHub Releases) or disable it. See `apps/desktop/README.md#updates`. **The owner handles this
-  one**; the artifact names (`deepseek-harness-<version>-…`) go with it.
+  one**; the artifact names (`deepseek-harness-<version>-…`) go with it. Installers are published as GitHub Releases
+  of this repo (public since 2026-11-06), tagged `v<version>`; Peto Web's `/download/` page links the newest release
+  that has an `.exe`, `.msi` or `.dmg` (steps in Peto-Web `deploy/OPERATIONS.md`, "Phát hành bản Peto Agent").
 - **Desktop product analytics.** Off (stage 3, see "DeepSeek services cut").
 - **Session telemetry.** Off (stage 3): it released the Session log behind every feedback rating to DeepSeek's
   collector.
