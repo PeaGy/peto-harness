@@ -115,6 +115,10 @@ export function createElectronBuilderConfig(
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
+      // Peto: the Windows company name, installer publisher and file description come from these manifest fields,
+      // so a Peto build never presents itself as a DeepSeek release.
+      author: { name: 'Peto' },
+      description: 'Peto Agent, built on DeepSeek Harness',
     },
     // Peto: the product name sets the executable, installed folder and Electron's userData directory.
     productName: 'Peto Agent',

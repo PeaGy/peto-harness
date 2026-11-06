@@ -184,8 +184,10 @@ device token lives on the user's machine, stored through the harness's credentia
     (`apps/desktop/src/main.ts`), and as the macOS About panel's copyright line; its `applicationName` is the localized
     product name.
   - `apps/desktop/scripts/electron-builder-config.mjs`: `productName` "Peto Agent" (executable `Peto Agent.exe`, macOS
-    `Peto Agent.app`, install folder, Electron's userData directory `%APPDATA%\Peto Agent`), the `dsh:` protocol name
-    and the microphone usage text. Hardcoded executable paths follow: `apps/desktop/cli/dsh`, `dsh.cmd`,
+    `Peto Agent.app`, install folder, Electron's userData directory `%APPDATA%\Peto Agent`), the `dsh:` protocol name,
+    the microphone usage text, and `extraMetadata.author`/`description` ("Peto", "Peto Agent, built on DeepSeek
+    Harness"), which become the Windows company name, installer publisher and file description in place of DeepSeek's
+    company (`tests/installer-packaging.spec.ts`). Hardcoded executable paths follow: `apps/desktop/cli/dsh`, `dsh.cmd`,
     `scripts/package-macos.ts`, `package-target.ts`, `smoke-packaged-runtime.ts`, `verify-retained-desktop.ts`,
     `development-app.ts`, `electron-builder.config.d.mts`. Artifact names (`deepseek-harness-<version>-…`) are
     unchanged: the upload, update-feed and version-discovery scripts match them, so they change with stage 3.

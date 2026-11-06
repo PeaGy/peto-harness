@@ -45,13 +45,16 @@ describe('installer preparation preserves application dependencies', () => {
       const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
       const config = createElectronBuilderConfig(env, platform, 'x64')
       const metadataPackager = new Packager({ projectDir: tmpdir() })
-      const metadata: unknown = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+      // electron-builder merges extraMetadata over the manifest before reading the company name and description.
+      const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as Record<string, unknown>
+      const metadata = { ...manifest, ...config.extraMetadata }
       Object.defineProperties(metadataPackager, {
         config: { value: config },
         metadata: { value: metadata },
       })
       const appInfo = new AppInfo(metadataPackager, undefined)
-      expect(appInfo.companyName).toBe('Hangzhou DeepSeek Artificial Intelligence Co., Ltd.')
+      expect(appInfo.companyName).toBe('Peto')
+      expect(appInfo.description).toBe('Peto Agent, built on DeepSeek Harness')
       expect(appInfo.copyright).toBe(`Copyright © ${new Date().getFullYear()} Peto Agent`)
       if (platform === 'win32') {
         expect(expandMacro(config.nsis.uninstallDisplayName, null, appInfo, {}, false)).toBe('Peto Agent')
