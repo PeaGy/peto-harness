@@ -193,6 +193,12 @@ device token lives on the user's machine, stored through the harness's credentia
     `development-app.ts`, `electron-builder.config.d.mts`. Artifact names (`deepseek-harness-<version>-…`) are
     unchanged: the upload, update-feed and version-discovery scripts match them, so they change with stage 3.
   - Installer: `apps/desktop/installer/locales/*.json` (eight) and `extract-report.h`.
+- Release branding (2026-11-06). Upstream builds unsigned packages with the local client profile ("DSH Local Build"
+  label, version and commit badge, window title) so a test artifact never passes for a release. Every Peto release is
+  unsigned, so `apps/desktop/scripts/package-target.ts` builds the official profile in every mode: the sidebar shows
+  the mark with "Peto Agent" and the window is titled "Peto Agent" (`tests/package-target-stages.spec.ts`). The
+  official profile changes only that branding (`ui-brand-peto`, `ui-layout`, `ui-sidebar`); local Web and
+  `dev:desktop` builds keep the local label. `apps/desktop/packaging/README.md` still describes upstream.
 - Separate data (2026-11-06). The first release shared everything with an installed DeepSeek Harness: Electron
   derives userData from the manifest `name`, not `productName`, so both apps used `%APPDATA%\@deepseek-ai\dsh-desktop`,
   whose Chromium single-instance lock made launching one app focus the other, and whose removal by Peto's uninstaller
