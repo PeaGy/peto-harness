@@ -178,13 +178,14 @@ device token lives on the user's machine, stored through the harness's credentia
     SDK, not the app).
 - App name (stage 2, 2026-11-05). The app is "Peto Agent", as on the Welcome screen; "Built on DeepSeek Harness" is the
   About credit. Engine-level names stay upstream's: the `dsh` command and its help, the SDKs, package descriptions shown
-  on the Plugins page, "DSH plugin" in Creator mode, `~/.dsh`, docs and notes.
+  on the Plugins page, "DSH plugin" in Creator mode, docs and notes. The data locations do not stay upstream's (see
+  "Separate data" below).
   - `apps/desktop/src/locale.ts`, eight languages: menus, tray, quit dialog, startup failure, update title. New
     `aboutCredit` ("Built on DeepSeek Harness" and translations) under the version in the Windows About dialog
     (`apps/desktop/src/main.ts`), and as the macOS About panel's copyright line; its `applicationName` is the localized
     product name.
   - `apps/desktop/scripts/electron-builder-config.mjs`: `productName` "Peto Agent" (executable `Peto Agent.exe`, macOS
-    `Peto Agent.app`, install folder, Electron's userData directory `%APPDATA%\Peto Agent`), the `dsh:` protocol name,
+    `Peto Agent.app` and install folder), the `dsh:` protocol name,
     the microphone usage text, and `extraMetadata.author`/`description` ("Peto", "Peto Agent, built on DeepSeek
     Harness"), which become the Windows company name, installer publisher and file description in place of DeepSeek's
     company (`tests/installer-packaging.spec.ts`). Hardcoded executable paths follow: `apps/desktop/cli/dsh`, `dsh.cmd`,
@@ -192,6 +193,19 @@ device token lives on the user's machine, stored through the harness's credentia
     `development-app.ts`, `electron-builder.config.d.mts`. Artifact names (`deepseek-harness-<version>-…`) are
     unchanged: the upload, update-feed and version-discovery scripts match them, so they change with stage 3.
   - Installer: `apps/desktop/installer/locales/*.json` (eight) and `extract-report.h`.
+- Separate data (2026-11-06). The first release shared everything with an installed DeepSeek Harness: Electron
+  derives userData from the manifest `name`, not `productName`, so both apps used `%APPDATA%\@deepseek-ai\dsh-desktop`,
+  whose Chromium single-instance lock made launching one app focus the other, and whose removal by Peto's uninstaller
+  would delete DeepSeek Harness's data. Both also used the Harness home `~/.dsh`.
+  - `electron-builder-config.mjs`: `extraMetadata.name` `peto-agent`, so userData, the single-instance lock, the updater
+    cache and the uninstaller's cleanup target are `%APPDATA%\peto-agent` and Peto's own.
+  - `apps/desktop/src/peto-home.ts`, applied by `peto-home-apply.ts` as the first import of `main.ts`: `DSH_HOME`
+    defaults to `~/.peto-agent` (an explicit `DSH_HOME` still wins), inherited by the Host. `apps/desktop/cli/dsh` and
+    `dsh.cmd` set the same default for the command-line launcher. Tests: `tests/peto-home.spec.ts`,
+    `tests/cli-launcher.spec.ts`. Development runs keep their own `DSH_HOME` and `--user-data-dir`.
+  - Nothing is migrated: data Peto Agent wrote to `~/.dsh` before this change stays there, so a first launch asks to
+    sign in again. The `dsh://` scheme stays shared; it only focuses the window (`dsh://open`), and the app installed
+    or launched last answers it.
   - Client copy: `packages/client/ui-settings-account` (account page and first-run onboarding), `ui-plugin-manager`
     (install warning), `ui-sidebar-documentpreview` (Office preview notice), `packages/experimental/cua` (approval
     notice). The onboarding credit step and the account page still describe DeepSeek's balance and top-up; that

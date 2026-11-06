@@ -115,6 +115,10 @@ export function createElectronBuilderConfig(
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
+      // Peto: Electron derives the userData directory (and with it the single-instance lock) from the manifest name,
+      // and the uninstaller removes that directory. A name of its own keeps Peto Agent from handing launches to an
+      // installed DeepSeek Harness, or deleting its data on uninstall.
+      name: 'peto-agent',
       // Peto: the Windows company name, installer publisher and file description come from these manifest fields,
       // so a Peto build never presents itself as a DeepSeek release.
       author: { name: 'Peto' },

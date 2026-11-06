@@ -11,4 +11,6 @@ while [ -L "$launcher" ]; do
   esac
 done
 resources=$(CDPATH= cd -- "$(dirname -- "$launcher")/../../.." && pwd -P)
+# Peto: Peto Agent keeps its own Harness home unless DSH_HOME names another.
+if [ -z "${DSH_HOME:-}" ]; then DSH_HOME=$HOME/.peto-agent; export DSH_HOME; fi
 ELECTRON_RUN_AS_NODE=1 exec "$resources/../MacOS/Peto Agent" --expose-internals "$resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" "$@"
