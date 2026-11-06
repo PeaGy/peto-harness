@@ -97,8 +97,8 @@ The sign-in and model route in this repo (built 2026-11-05, two new packages):
   one streamed reply through pi-ai. Line coverage 100% / ~90%; branch coverage is below upstream's 100% gate (mostly
   disposal races).
 
-The account card is built ("Account card" below). The model-facing web_search/web_fetch tools still use DeepSeek's
-search providers; the gateway runs no web search.
+The account card is built ("Account card" below). `web_search` searches through Peto Web ("Web search" below);
+`web_fetch` stays the local fetcher, and the gateway itself runs no web search.
 
 Never put Peto's server credentials (xAI, OpenAI, Anthropic keys) in this repository or in a build. Only the user's
 device token lives on the user's machine, stored through the harness's credentials service.
@@ -260,6 +260,29 @@ device token lives on the user's machine, stored through the harness's credentia
   - Tests: `peto-account/tests/account.spec.ts` (shared read, older servers, failures), `llm-peto-account` provider
     spec (quota recoding), `ui-settings-account/tests/peto.client.spec.tsx` (card states, quota notice, onboarding,
     helpers). Lint fix in passing: `peto-account` `startSignIn` re-checks `closed` after an await (disable comment).
+- Web search (2026-11-06; the owner asked for it "as close to DeepSeek as possible"). DeepSeek Harness only shipped
+  DeepSeek's providers (Search API, or a Messages call with native search), which need a DeepSeek sign-in or
+  `DEEPSEEK_API_KEY`, so with a Peto account `web_search` was hidden and Peto could only open a URL it was given.
+  - `packages/llm/llm-peto-account/src/search.ts`: provider `peto` ("Peto", eight-language picker description),
+    registered from the route's `apply` through `ctx.inject(['web'])` with the seam's types restated structurally, so
+    the package gains no dependency and the lockfile is unchanged. `ready()` is "a Peto token is stored"; `search()`
+    posts `{query, count ≤ 10, need_content: false, ori_question}` (the triggering prompt, whitespace collapsed, 128 code
+    points, as DeepSeek's provider sends it) with the device token to `<gateway>/search`, maps the reply exactly as
+    `mapSearchResponse` maps the DeepSeek Search API (`results[]` url/title/snippet/summary/date), and on 401 rejects
+    the token. Config `searchTimeoutMs` (60 s, as tool-web).
+  - `packages/bundle/base/cordis.patch.yml`: the `web` row selects `searchProvider: peto`. The DeepSeek providers stay
+    registered and selectable on Plugins → Web search and fetch, where Peto is listed after them and shows no settings
+    or DeepSeek guide link. `base.spec.ts` and `apps/web/tests/plugin-config.e2e.ts` ("selects search and fetch
+    providers…": Peto default, DeepSeek now saved as an override, choosing Peto clears it) follow.
+  - Peto Web side (Peto-Web `ai/web_lookup.py`, `POST /api/agent/v1/search`, deployed in `9f7fd98`): one Grok call at low effort with
+    `web_search` forced, returning only pages the search itself returned (`action.sources`, `url_citation`); Grok
+    writes the summary and date, the snippet is the summary cut to 200 characters. One step per search, refunded on
+    failure; `PETO_AGENT_WEB_SEARCH=false` turns it off (503).
+  - Checked: provider tests (`tests/search.spec.ts`), the settings e2e (passes; four other tests in that file fail on
+    this machine over the command-timeout default and a community-bundle golden, unrelated and not compared with the
+    previous build), and a real run of the source Web build against a mock Peto Web whose scripted model called
+    `web_search`: the search card listed the results with title, snippet and date. First in 0.2.2-rc.1.20261106.5;
+    real Grok searches are untested until the owner tries that build.
 - Brand mark (stage 2, 2026-11-05; the owner picked "A. Đặc" of three monochrome mockups): new package
   `packages/client/ui-brand-peto` (`@deepseek-ai/dsh-client-ui-brand-peto`) fills `sidebar.brand.mark` (expanded
   sidebar and collapsed rail) and `conversation.hero.brand.mark` with the Welcome logo traced into one solid

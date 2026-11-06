@@ -167,28 +167,34 @@ describe('web e2e: plugin configuration pages', () => {
       await expect.poll(() => page.getByRole('menuitem').count()).toBe(0)
       return items
     }
-    // The shipped composition selects the DeepSeek Search API and local fetch, and the page writes nothing on mount.
-    expect(await searchMenu.textContent()).toBe('DeepSeek Search API')
+    // Peto: the shipped composition selects Peto search (Peto Web) and local fetch, and the page writes nothing on
+    // mount. The official DeepSeek providers keep their places at the top of the menu.
+    expect(await searchMenu.textContent()).toBe('Peto')
     expect(await fetchMenu.textContent()).toBe('本机直接获取')
-    expect(await panel.getByRole('button', { name: '网页搜索提供方 DeepSeek Search API', exact: true }).count()).toBe(1)
+    expect(await panel.getByRole('button', { name: '网页搜索提供方 Peto', exact: true }).count()).toBe(1)
     expect(await panel.getByRole('button', { name: '网页获取提供方 本机直接获取', exact: true }).count()).toBe(1)
-    expect(await entries(searchMenu)).toEqual(['DeepSeek Search API', 'DeepSeek（旧版）'])
+    expect(await entries(searchMenu)).toEqual(['DeepSeek Search API', 'DeepSeek（旧版）', 'Peto'])
     expect(await entries(fetchMenu)).toEqual(['本机直接获取', 'DeepSeek Fetch API'])
     expect(await settingsDocument()).not.toContain('searchProvider:')
     // The page fixes the menu order itself; the Loader imports plugins concurrently, so the
     // Host's registration order is not the YAML row order and only its membership is checked here.
     const hostWeb = scaffold.ctx.get('web') as { listProviders(): Record<'search' | 'fetch', { id: string }[]> } | undefined
-    expect(hostWeb?.listProviders().search.map(provider => provider.id).sort()).toEqual(['deepseek-official', 'deepseek-search-api'])
-    expect(await panel.getByRole('link', { name: '网页搜索与获取指南', exact: true }).getAttribute('href'))
-      .toBe('https://api-docs.deepseek.com/zh-cn/guides/search')
+    expect(hostWeb?.listProviders().search.map(provider => provider.id).sort()).toEqual(['deepseek-official', 'deepseek-search-api', 'peto'])
+    // The DeepSeek guide belongs to the DeepSeek providers, so Peto search and local fetch show none.
+    expect(await panel.getByRole('link', { name: '网页搜索与获取指南', exact: true }).count()).toBe(0)
     // Each section shows the description its selected provider registered with the Host, in the active language.
-    expect(await searchSection.getByText('直接请求搜索接口返回标题、URL 与摘要，无需额外调用模型。使用当前会话的 DeepSeek 账号或 DeepSeek API Key，可能产生计费', { exact: true }).count()).toBe(1)
+    expect(await searchSection.getByText('通过 Peto Web 使用 Peto 自己的模型搜索，返回标题、URL、摘要与概述。使用已登录的 Peto 账号，每次搜索计一步 Peto Agent 额度。', { exact: true }).count()).toBe(1)
+    expect(await searchSection.getByRole('textbox').count()).toBe(0)
     expect(await fetchSection.getByText('本机直接请求，免 API Key 与计费，可访问内网和本机。仅解码 HTML、JSON 等文本，不执行 JavaScript、不带登录态，不支持 PDF；也可以试试 DeepSeek Fetch API', { exact: true }).count()).toBe(1)
     // The Fetch API suggestion is text, not an action.
     expect(await fetchSection.getByRole('button').count()).toBe(1)
     expect(await save.isDisabled()).toBe(true)
 
-    // The Search panel holds only the result count.
+    // The DeepSeek Search API panel holds only the result count.
+    await choose(searchMenu, 'DeepSeek Search API')
+    expect(await panel.getByRole('link', { name: '网页搜索与获取指南', exact: true }).getAttribute('href'))
+      .toBe('https://api-docs.deepseek.com/zh-cn/guides/search')
+    expect(await searchSection.getByText('直接请求搜索接口返回标题、URL 与摘要，无需额外调用模型。使用当前会话的 DeepSeek 账号或 DeepSeek API Key，可能产生计费', { exact: true }).count()).toBe(1)
     expect(await searchSection.getByRole('textbox').count()).toBe(1)
     expect(await count.inputValue()).toBe('10')
     await count.fill('51')
@@ -196,7 +202,8 @@ describe('web e2e: plugin configuration pages', () => {
     expect(await save.isDisabled()).toBe(true)
     for (const menu of [searchMenu, fetchMenu]) expect(await menu.isDisabled()).toBe(true)
     await count.fill('10')
-    expect(await save.isDisabled()).toBe(true)
+    // The staged search selection is the only change.
+    expect(await save.isDisabled()).toBe(false)
 
     // The Fetch API takes no settings here, so its section shows no panel.
     await choose(fetchMenu, 'DeepSeek Fetch API')
@@ -206,6 +213,7 @@ describe('web e2e: plugin configuration pages', () => {
     await save.click()
     await expect.poll(() => save.isDisabled()).toBe(true)
     await expect.poll(settingsDocument).toContain('fetchProvider: deepseek-fetch-api')
+    expect(await settingsDocument()).toContain('searchProvider: deepseek-search-api')
 
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -234,15 +242,20 @@ describe('web e2e: plugin configuration pages', () => {
     await openPage(panel, '网页搜索与获取')
     expect(await searchMenu.textContent()).toBe('DeepSeek（旧版）')
     expect(await messagesEndpoint.inputValue()).toBe('https://messages.test/anthropic/v1')
-    expect(await entries(searchMenu)).toEqual(['DeepSeek Search API', 'DeepSeek（旧版）'])
+    expect(await entries(searchMenu)).toEqual(['DeepSeek Search API', 'DeepSeek（旧版）', 'Peto'])
     expect(await save.isDisabled()).toBe(true)
     expect(await settingsDocument()).toContain('searchProvider: deepseek-official')
     await choose(searchMenu, 'DeepSeek Search API')
     await count.fill('20')
     await save.click()
     await expect.poll(() => save.isDisabled()).toBe(true)
-    await expect.poll(settingsDocument).not.toContain('searchProvider:')
+    await expect.poll(settingsDocument).toContain('searchProvider: deepseek-search-api')
     expect(await settingsDocument()).toContain('count: 20')
+    // Choosing Peto again returns to the shipped selection, so the document no longer overrides it.
+    await choose(searchMenu, 'Peto')
+    await save.click()
+    await expect.poll(() => save.isDisabled()).toBe(true)
+    await expect.poll(settingsDocument).not.toContain('searchProvider:')
     expect(await settingsDocument()).not.toMatch(/ApiKeyEnv:|searchBaseURL:|fetchBaseURL:/)
     expect(tripwire.pageErrors).toEqual([])
   })

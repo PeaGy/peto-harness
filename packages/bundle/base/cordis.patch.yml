@@ -485,10 +485,12 @@
     # search provider and Web fetch provider
     # menus on the Web search and fetch settings page select a provider for each
     # capability in place of these defaults.
+    # Peto: search through Peto Web (the `peto` provider of llm-peto-account), which answers in the DeepSeek Search
+    # API's shape; the DeepSeek providers stay registered for the settings picker (PETO.md "Web search").
     - id: web
       name: '@deepseek-ai/dsh-web'
       config:
-        searchProvider: deepseek-search-api
+        searchProvider: peto
         fetchProvider: http
 
     - id: web-search-deepseek

@@ -21,8 +21,11 @@ import type {} from '@deepseek-ai/dsh-fs'
 import { PiAiAdapter, authContextFrom, credentialStoreFrom, resolveProfiles } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { PiAiAdapterOptions, PiAiModelProfile, ResolvedPiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
 import { listingRequest, parseListing } from './listing.ts'
+import { PetoSearchProvider, type WebSeam } from './search.ts'
 
 export { parseListing, reasoningEffortsOf } from './listing.ts'
+export { mapPetoSearch, PETO_SEARCH_COUNT, PETO_SEARCH_PROVIDER_ID, PetoSearchProvider } from './search.ts'
+export type { PetoSearchOptions } from './search.ts'
 
 export const name = 'llm-peto-account'
 export const inject = ['llm']
@@ -42,6 +45,8 @@ export interface Config {
   modelsMaxAgeMs?: number
   /** Wait after a failed listing before the next lookup tries again. */
   modelsRetryMs?: number
+  /** Deadline for one web search through Peto Web. */
+  searchTimeoutMs?: number
 }
 /** Validated deployment choices. */
 export const Config = Schema.object({
@@ -50,6 +55,7 @@ export const Config = Schema.object({
   modelsTimeoutMs: Schema.number().min(1).max(120_000).default(15_000),
   modelsMaxAgeMs: Schema.number().min(0).max(86_400_000).default(300_000),
   modelsRetryMs: Schema.number().min(0).max(3_600_000).default(10_000),
+  searchTimeoutMs: Schema.number().min(1).max(300_000).default(60_000),
 })
 
 /**
@@ -195,7 +201,40 @@ export function apply(ctx: Context, config: Config): void {
       ctx.logger.warn(error)
     })
   }
+  // Peto: the `web_search` provider of Peto accounts (search.ts), mounted only where the web seam runs.
+  ctx.inject(['web'], (scope) => {
+    const web = scope.get('web') as unknown as WebSeam
+    web.registerSearchProvider(new PetoSearchProvider(() => ({
+      baseURL,
+      token,
+      rejectToken: async (value) => { await ctx.get('deepseekAccount')?.rejectToken(value) },
+      timeoutMs: resolved.searchTimeoutMs,
+      originalQuestion: () => latestUserQuestion(scope),
+    })))
+  })
   ctx.on('credentials/record-updated', refresh)
   ctx.on('deepseek-account/signed-out', refresh)
   refresh()
+}
+
+/** The parts of a Session the triggering question is read from. */
+interface QuestionSession {
+  deriveMessages(): readonly {
+    readonly role: string
+    readonly source: { readonly kind: string }
+    readonly content: readonly { readonly type: string; readonly text?: string }[]
+  }[]
+}
+
+/**
+ * The latest prompt the user typed in the Session whose agent is searching, as DeepSeek's search provider sends it.
+ * @param ctx - context that may host the agents service.
+ * @returns that prompt's text, or undefined outside an agent turn.
+ */
+function latestUserQuestion(ctx: Context): string | undefined {
+  const agents = ctx.get('agents') as unknown as { currentInitiator(): { session: QuestionSession } | undefined } | undefined
+  const prompt = agents?.currentInitiator()?.session.deriveMessages()
+    .findLast(message => message.role === 'user' && message.source.kind === 'user')
+  return prompt?.content.flatMap(block => block.type === 'text' && block.text !== undefined ? [block.text] : [])
+    .join('\n')
 }
