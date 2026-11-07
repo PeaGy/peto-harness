@@ -123,6 +123,13 @@ feed from Peto Web instead of signing builds.
 - Builds before the first one with a feed (2026-11-07) have no `app-update.yml` and must be reinstalled once by hand.
 - Tests: `apps/desktop/tests/peto-update-feed.spec.ts`; `desktop-channel-version.spec.ts` and `macos-signature.spec.ts`
   now expect the Peto feed for unsigned Windows builds. Peto Web `tests/test_desktop_update.py`.
+- Checked 2026-11-07 on 0.2.2-rc.1.20261107.1: the build's `app-update.yml` is the Peto Web feed on `stable` without
+  `publisherName`; Peto Web's rewrite reads the generated `stable.yml`. A copy of `win-unpacked` with isolated
+  `DSH_HOME`/`--user-data-dir`, its feed pointed at a loopback stand-in (Peto Web's YAML, GitHub-style 302 downloads)
+  advertising `.99`, checked at startup, showed Update, followed the redirects (old blockmap tried, then the full
+  installer), passed the SHA-512 check and opened "Version …99 is ready to install". Install and Restart was not
+  pressed (it would replace the owner's installed app), so the unsigned NSIS handoff and relaunch are unverified until
+  the first real update.
 
 ## The Python agent-cli
 

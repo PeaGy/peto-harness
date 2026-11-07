@@ -92,7 +92,8 @@ export async function preparePetoReleaseAssets(
   await copyFile(source, assets.installer, constants.COPYFILE_EXCL)
   await copyFile(blockmapSource, assets.blockmap, constants.COPYFILE_EXCL)
   const published = { ...metadata, files: [{ ...file, url: name }], ...metadata.path === undefined ? {} : { path: name } }
-  await writeFile(assets.metadata, dump(published), { flag: 'wx' })
+  // One line per value, as electron-builder writes it.
+  await writeFile(assets.metadata, dump(published, { lineWidth: -1 }), { flag: 'wx' })
   return assets
 }
 
