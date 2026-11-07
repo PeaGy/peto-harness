@@ -139,7 +139,7 @@ describe('desktop macOS release signature', () => {
     }, 'win32')).toThrow(/DSH_DESKTOP_WINDOWS_CER_FILE/u)
   })
 
-  it('isolates unsigned Windows artifacts and omits updater metadata without release credentials', async () => {
+  it('isolates unsigned Windows artifacts and points updater metadata at Peto Web without release credentials', async () => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
     const config = createElectronBuilderConfig({
       DSH_DESKTOP_APP_ID: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
@@ -151,8 +151,9 @@ describe('desktop macOS release signature', () => {
     expect(portablePath(config.directories.output)).toContain('/targets/win-x64/unsigned-artifacts')
     expect(portablePath(config.nsis.include)).toMatch(/\/scripts\/installer\.nsh$/u)
     expect(config).toMatchObject({
-      win: { forceCodeSigning: false, signtoolOptions: { sign: undefined } },
-      publish: null,
+      win: { forceCodeSigning: false, signtoolOptions: { sign: undefined, publisherName: undefined } },
+      // Peto: unsigned Windows releases update from the policy origin without publisher verification.
+      publish: [{ provider: 'generic', url: 'https://policy.example.com/api/agent/desktop/update/win-x64/', channel: 'stable' }],
     })
   })
 

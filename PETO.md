@@ -33,12 +33,9 @@ Scope, as decided by the owner (2026-11-04):
 ## DeepSeek services the fork must cut or redirect
 
 A build given to anyone must not keep talking to DeepSeek. Each item below is on by default upstream:
-- **Auto-update.** Packaged apps poll a fixed feed on `download.deepseek.com` about every ten minutes and accept a
-  mandatory update policy from DeepSeek. Left alone, it would replace Peto's build with DeepSeek's. Point it at Peto's
-  own feed (for example GitHub Releases) or disable it. See `apps/desktop/README.md#updates`. **The owner handles this
-  one**; the artifact names (`deepseek-harness-<version>-…`) go with it. Installers are published as GitHub Releases
-  of this repo (public since 2026-11-06), tagged `v<version>`; Peto Web's `/download/` page links the newest release
-  that has an `.exe`, `.msi` or `.dmg` (steps in Peto-Web `deploy/OPERATIONS.md`, "Phát hành bản Peto Agent").
+- **Auto-update.** Upstream packaged apps poll a fixed feed on `download.deepseek.com` about every ten minutes and
+  accept a mandatory update policy from DeepSeek. Peto builds are unsigned, which upstream treats as local builds
+  without a feed; since 2026-11-07 they poll Peto Web instead ("Auto-update" below). The policy origin is Peto Web too.
 - **Desktop product analytics.** Off (stage 3, see "DeepSeek services cut").
 - **Session telemetry.** Off (stage 3): it released the Session log behind every feedback rating to DeepSeek's
   collector.
@@ -103,6 +100,30 @@ The account card is built ("Account card" below). `web_search` searches through 
 Never put Peto's server credentials (xAI, OpenAI, Anthropic keys) in this repository or in a build. Only the user's
 device token lives on the user's machine, stored through the harness's credentials service.
 
+## Auto-update
+
+The owner picked "like DSH, unsigned" on 2026-11-07: keep upstream's updater, dialogs and safe restart, and serve the
+feed from Peto Web instead of signing builds.
+- `apps/desktop/scripts/peto-update-feed.mjs`: an unsigned Windows build gets electron-builder's generic feed
+  `<policy origin>/api/agent/desktop/update/win-x64/` on channel `stable` (an explicit `DSH_DESKTOP_UPDATE_CHANNEL`
+  wins). The policy origin is the build's `DSH_DESKTOP_MANDATORY_UPDATE_*_ORIGIN`, Peto Web, so no new setting exists.
+  The build then carries `resources/app-update.yml` without `publisherName`, which turns the updater on; with no
+  publisher electron-updater checks only the installer's SHA-512 from the feed. macOS stays without a feed (Squirrel.Mac
+  refuses unsigned updates).
+- `apps/desktop/scripts/peto-release-assets.ts <version>`: copies the built installer and blockmap as
+  `Peto-Agent-Setup-<version>-x64.exe` (+ `.blockmap`) and rewrites `stable.yml` to that name after checking its SHA-512
+  and size, into `.desktop-build/targets/win-x64/peto-release/<version>/`. The owner uploads the three files to the
+  GitHub Release `v<version>`.
+- Peto Web `GET /api/agent/desktop/update/win-x64/{stable,nightly}.yml` (`features/agent/desktop_update.py`) reads
+  `stable.yml` of the newest non-draft release that has one, checks version against tag and the installer's presence and
+  size, and returns it with absolute GitHub download URLs (cached 10 minutes). Installers never pass through Peto Web.
+  Drafting a release stops offering it; `PETO_DESKTOP_UPDATES=false` makes the feed 404. Development and Stable in
+  Settings get the same file.
+- Without a signature, whoever controls the GitHub account can ship an update to every install; the owner keeps 2FA on.
+- Builds before the first one with a feed (2026-11-07) have no `app-update.yml` and must be reinstalled once by hand.
+- Tests: `apps/desktop/tests/peto-update-feed.spec.ts`; `desktop-channel-version.spec.ts` and `macos-signature.spec.ts`
+  now expect the Peto feed for unsigned Windows builds. Peto Web `tests/test_desktop_update.py`.
+
 ## The Python agent-cli
 
 `Peto-Web/agent-cli` (the `peto` command) stays as Peto's benchmark and reference implementation; it is not removed.
@@ -129,7 +150,7 @@ device token lives on the user's machine, stored through the harness's credentia
    screen, the agent's own introduction, the name in text ("App name" below), the in-app mark ("Brand mark") and the
    app, tray, installer and Web icons ("App icons"). Left: the experimental liveshare viewer still draws the whale.
 3. Cut DeepSeek services: analytics, Session telemetry and the Feedback questionnaire are off ("DeepSeek services
-   cut"); the update feed is the owner's.
+   cut"). Auto-update goes to Peto Web since 2026-11-07 ("Auto-update").
 4. Peto sign-in: Peto-Web gateway (deployed), sign-in and model route here (built; the owner signed in with Peto and
    chatted with model `peto` in `dev:desktop` on 2026-11-05). Tool calls through the gateway confirmed on 2026-11-06
    with the installed 0.2.2-rc.1.20261106.2 (`dsh --profile web`): model `peto` read two files, edited one and ran
@@ -309,7 +330,9 @@ device token lives on the user's machine, stored through the harness's credentia
     SVG built on the same tile defs; no script for them is committed, so redo them the same way if the mark changes.
   - Checked: tray-icon, installer-packaging, main-startup and tray specs, the Web `app-icons` spec and
     `pwa-manifest.e2e.ts` (maskable safe circle) pass. The NSIS installer itself was not built.
-- DeepSeek services cut (stage 3, 2026-11-05; the update feed stays with the owner):
+- Auto-update (2026-11-07): `apps/desktop/scripts/electron-builder-config.mjs` takes the unsigned build's feed from
+  `peto-update-feed.mjs` instead of none ("Auto-update" above).
+- DeepSeek services cut (stage 3, 2026-11-05):
   - `packages/bundle/base/cordis.patch.yml`: `session-telemetry-otel` is `disabled: true`. In `FEEDBACK_ONLY` mode it
     sent the Session log prefix behind each Like/Dislike or `/feedback` to `dsh-otel-collector.deepseeksvc.com`.
     Ratings still record in the local Session log. `packages/client/ui-message-feedback` (eight languages): the

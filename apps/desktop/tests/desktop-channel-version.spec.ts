@@ -50,6 +50,7 @@ it('accepts a stable prerelease in an unsigned Windows x64 configuration', () =>
     DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
     DSH_DESKTOP_UNSIGNED: '1',
   }, 'win32', 'x64')
-  expect(config.extraMetadata).toMatchObject({ version })
-  expect(config.publish).toBeNull()
+  expect(config.extraMetadata).toMatchObject({ version, dshDesktopUpdateChannel: 'stable' })
+  // Peto: unsigned Windows releases update from the policy origin (`peto-update-feed.mjs`).
+  expect(config.publish).toEqual([{ provider: 'generic', url: 'https://policy.example.com/api/agent/desktop/update/win-x64/', channel: 'stable' }])
 })
