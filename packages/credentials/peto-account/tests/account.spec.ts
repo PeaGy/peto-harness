@@ -6,8 +6,9 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { Context, Service } from '@deepseek-ai/cordis'
 import AuthorizationService from '@deepseek-ai/dsh-authorization'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
-import type {
-  AccountBonusOrderId, AccountClientMetadata, AccountUserId, DeepSeekAccount, SignInAttemptId,
+import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
+import DeepSeekAccount, {
+  type AccountClientMetadata, type AccountNotificationId, type AccountUpdate, type SignInAttemptId,
 } from '@deepseek-ai/dsh-deepseek-account'
 import { KEY, PetoAccount, resolveDeviceName, serverOrigin, verificationUrl } from '../src/index.ts'
 
@@ -89,14 +90,14 @@ async function fixture(server: Server, config: Record<string, unknown> = {}, hom
   const provider = ctx.plugin(PetoAccount, { server: server.origin, allowLoopbackHttp: true, deviceName: 'Workstation', ...config })
   await provider
   cleanups.push(async () => { await provider.dispose(); await authorization.dispose(); await credentials.dispose() })
-  const account = ctx.deepseekAccount as PetoAccount
+  const account = ctx.deepseekAccount as unknown as PetoAccount
   const states = new AbortController()
   cleanups.push(async () => { states.abort() })
   const events: string[] = []
   ctx.on('deepseek-account/signed-out', () => { events.push('signed-out') })
   ctx.on('deepseek-account/session-expired', () => { events.push('session-expired') })
   const wait = async (phase: string) => {
-    for await (const state of account.watch(states.signal)) if (state.attempt?.phase === phase) return state
+    for await (const { state } of account.watch(states.signal)) if (state.attempt?.phase === phase) return state
     throw new Error(`missing phase ${phase}`)
   }
   return { ctx, account, wait, events, home: directory, dispose: () => provider.dispose() }
@@ -135,11 +136,64 @@ it('signs in through the device code and scopes the token to the configured serv
   })
   expect(server.received.find(row => row.path === '/api/agent/me')?.authorization).toBe(`Bearer ${TOKEN}`)
   expect(await f.account.getBalance(client)).toEqual({ status: 'ready', value: [], bonusWallets: [], steps: STEPS })
-  expect(await f.account.getUnnotifiedBonuses(client)).toEqual({ accountId: 'device-1', bonuses: [] })
-  const shared: DeepSeekAccount = f.account
-  expect(await shared.ackBonusNotified('device-1' as AccountUserId, 'order' as AccountBonusOrderId, client)).toBe(false)
+  // Peto Web sends no account notifications.
+  expect(await f.account.getNotifications(client)).toEqual({ nextPollAfterSeconds: 86_400, notifications: [] })
+  expect(await f.account.getNotificationContent('notice' as AccountNotificationId, client)).toBeNull()
+  expect(await f.account.reportNotificationEvent('notice' as AccountNotificationId, 'displayed', client)).toBe(false)
+  expect(f.account.hasRunningAccountTasks()).toBe(false)
   expect(await f.account.getPlatformSession()).toBeNull()
   expect(await f.account.getDeviceIdentity()).toMatchObject({ deviceId: 'device-1', userId: 'device-1' })
+})
+
+it('reports credential changes and expiry to watchers', async () => {
+  const server = await peto()
+  const f = await fixture(server)
+  const lifetime = new AbortController()
+  cleanups.push(async () => { lifetime.abort() })
+  const updates: AccountUpdate['type'][] = []
+  const watching = (async () => {
+    for await (const { type, state } of f.account.watchState(lifetime.signal)) {
+      updates.push(type)
+      if (state.attempt?.phase === 'succeeded') return
+    }
+  })()
+  const expiries = f.account.watchExpiry(lifetime.signal)[Symbol.asyncIterator]()
+  const expiry = expiries.next()
+  await f.account.startSignIn(client, 'http://127.0.0.1:1', 'desktop')
+  await watching
+  expect(updates[0]).toBe('snapshot')
+  expect(updates).toContain('credentials-changed')
+  await f.account.rejectToken(TOKEN)
+  expect(await expiry).toEqual({ done: false, value: 'session-expired' })
+  lifetime.abort()
+  expect(await expiries.next()).toEqual({ done: true, value: undefined })
+})
+
+it('implements every account Remote method that DeepSeek descriptors call, under the same service binding', async () => {
+  // The base bundle registers DeepSeek's account descriptors, which call methods of the `deepseekAccount` service with
+  // positional arguments, so Peto must bind the same key and namespace and implement each method with the same arity.
+  const directory = await mkdtemp(join(tmpdir(), 'dsh-peto-account-'))
+  cleanups.push(() => rm(directory, { recursive: true, force: true }))
+  const ctx = new Context()
+  const credentials = ctx.plugin(LocalCredentialProvider, { path: join(directory, 'credentials.yaml'), watch: false })
+  await credentials
+  const authorization = ctx.plugin(AuthorizationService)
+  await authorization
+  const upstream = ctx.plugin(DeepSeekAccount, {})
+  await upstream
+  cleanups.push(async () => { await upstream.dispose(); await authorization.dispose(); await credentials.dispose() })
+  const f = await fixture(await peto())
+  const markers = remoteMethods(ctx.deepseekAccount)
+  expect(markers.map(marker => marker.exportName ?? marker.method)).toContain('getNotifications')
+  const methods = f.account as unknown as Record<string, unknown>
+  const upstreamMethods = ctx.deepseekAccount as unknown as Record<string, unknown>
+  for (const marker of markers) {
+    const method = methods[marker.method]
+    expect(typeof method, marker.method).toBe('function')
+    expect((method as (...args: unknown[]) => unknown).length, marker.method)
+      .toBe((upstreamMethods[marker.method] as (...args: unknown[]) => unknown).length)
+  }
+  expect([f.account.typertRemote.serviceKey, f.account.typertRemote.namespace]).toEqual(['deepseekAccount', 'account'])
 })
 
 it('opens the approval link the server returns when it carries the same code', async () => {
@@ -289,7 +343,7 @@ it('removes a token Peto Web rejects and emits the expiry notification', async (
   expect((await f.account.getState()).status).toBe('signed-out')
   expect(await f.account.getProfile(client)).toBeNull()
   expect(await f.account.getBalance(client)).toBeNull()
-  expect(await f.account.getUnnotifiedBonuses(client)).toBeNull()
+  expect(await f.account.getNotifications(client)).toBeNull()
 
   const again = await signedIn(await peto())
   await again.account.rejectToken(TOKEN)

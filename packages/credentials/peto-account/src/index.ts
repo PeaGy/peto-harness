@@ -1,13 +1,21 @@
-/** Peto Web device-code provider of the shared account Service Definition; browser approval never bypasses local cancellation. */
+/**
+ * Peto Web device-code account service; browser approval never bypasses local cancellation. It takes the place of
+ * DeepSeek's account service under the same `deepseekAccount` service key and `account` Remote namespace. The Remote
+ * descriptors stay DeepSeek's: the base bundle has the typert loader register `@deepseek-ai/dsh-deepseek-account`, whose
+ * descriptors name this service key, so every Remote method below keeps its DeepSeek name and parameter order. This
+ * package declares no Remote methods of its own, because the generator rejects two packages exporting one endpoint.
+ */
 import { randomUUID } from 'node:crypto'
 import { hostname, platform, release } from 'node:os'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Context, Service } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { z } from 'zod'
+import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import {
-  DeepSeekAccount, installAccountTaskCancellation, type AccountBonusBatch, type AccountDetails, type AccountUserId, type AccountView,
-  type AccountBonusOrderId, type AccountClientMetadata, type AccountSteps, type PlatformSession, type SignInAttemptId,
+  installAccountTaskCancellation, isRunningAccountTask, type AccountDetails, type AccountUserId, type AccountView,
+  type AccountClientMetadata, type AccountNotification, type AccountNotificationBatch, type AccountNotificationEvent,
+  type AccountNotificationId, type AccountSteps, type AccountUpdate, type PlatformSession, type SignInAttemptId,
   type SignInAttemptView,
 } from '@deepseek-ai/dsh-deepseek-account'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
@@ -33,8 +41,13 @@ type ReadyProfile = Extract<AccountDetails['profile'], { status: 'ready' }>
 /** Outcome of one `/api/agent/me` read; `stale` means the credential changed or expired meanwhile. */
 type MeRead = { readonly kind: 'ok'; readonly body: unknown } | { readonly kind: 'failed' } | { readonly kind: 'stale' }
 
+/** What changed for watchers: progress and state reads, or a credential write or removal. */
+type Change = AccountUpdate['type']
+
 /** Consecutive transient poll failures tolerated before an attempt fails; one more ends it. */
 const POLL_FAILURES = 3
+/** Peto Web sends no account notifications, so the Client asks again only once a day. */
+const NOTIFICATION_POLL_SECONDS = 86_400
 const ACTIVE_PHASES: ReadonlySet<SignInAttemptView['phase']> = new Set(['initializing', 'waiting-browser', 'exchanging', 'committing'])
 
 /** Deployment choices for the Peto Web account. */
@@ -82,7 +95,7 @@ interface Attempt {
 }
 
 /** The Peto implementation owns login state and its opaque stored device token. */
-export class PetoAccount extends DeepSeekAccount {
+export class PetoAccount extends TypertRemoteService {
   static inject = ['credentials', 'authorization']
   static Config = Config
   private readonly origin: string
@@ -93,7 +106,7 @@ export class PetoAccount extends DeepSeekAccount {
   private readonly logoutLifetime = new AbortController()
   private readonly revocations = new Set<Promise<void>>()
   private attempt: Attempt | undefined
-  private readonly listeners = new Set<(identityOnly: boolean) => void>()
+  private readonly listeners = new Set<(change: Change) => void>()
   /** Latest ready profile and the token it was read with, so a cached name never answers for a newer credential. */
   private lastProfile: { readonly token: string; readonly profile: ReadyProfile } | undefined
   /** The `/api/agent/me` read the profile and balance queries of one refresh share. */
@@ -104,7 +117,7 @@ export class PetoAccount extends DeepSeekAccount {
 
   /** @param ctx - Host with authorization and credentials services. @param config - deployment options. */
   constructor(ctx: Context, config: Config) {
-    super(ctx)
+    super(ctx, 'deepseekAccount', { namespace: 'account' })
     installAccountTaskCancellation(ctx)
     const resolved = Config(config)
     this.origin = serverOrigin(resolved.server, resolved.allowLoopbackHttp)
@@ -124,7 +137,7 @@ export class PetoAccount extends DeepSeekAccount {
     ctx.on('credentials/record-updated', (key) => {
       if (key !== KEY) return
       this.invalidateDetails()
-      this.changed()
+      this.changed('credentials-changed')
     })
     ctx.effect(() => async () => {
       this.closed = true
@@ -137,7 +150,7 @@ export class PetoAccount extends DeepSeekAccount {
       }
       await this.removing
       await Promise.all(this.revocations)
-      this.changed()
+      this.changed('snapshot')
     }, 'peto-account: active attempt lifetime')
   }
 
@@ -158,7 +171,11 @@ export class PetoAccount extends DeepSeekAccount {
     await this.ctx.credentials.deleteRecord(KEY)
   }
 
-  override async getState(): Promise<AccountView> {
+  /**
+   * Read stored-account presence and the latest sign-in attempt.
+   * @returns a snapshot without the device token.
+   */
+  async getState(): Promise<AccountView> {
     const stored = await this.readGrant()
     const attempt = this.attempt?.view ?? null
     const home = new URL('/', this.origin).href
@@ -171,7 +188,12 @@ export class PetoAccount extends DeepSeekAccount {
     }
   }
 
-  override async getProfile(_client: AccountClientMetadata): Promise<AccountDetails['profile'] | null> {
+  /**
+   * Read the account name Peto Web holds for this device.
+   * @param _client - identity of the requesting UI; Peto Web does not use it.
+   * @returns the profile, or null if signed out or the credential changed during the read.
+   */
+  async getProfile(_client: AccountClientMetadata): Promise<AccountDetails['profile'] | null> {
     const lifetime = this.detailsLifetime
     const stored = await this.readCurrentGrant(lifetime)
     if (stored === null) return null
@@ -186,7 +208,12 @@ export class PetoAccount extends DeepSeekAccount {
     return profile
   }
 
-  override async getBalance(_client: AccountClientMetadata): Promise<AccountDetails['balance'] | null> {
+  /**
+   * Read today's Peto Agent steps, which stand in for a wallet balance.
+   * @param _client - identity of the requesting UI; Peto Web does not use it.
+   * @returns the steps, or null if signed out or the credential changed during the read.
+   */
+  async getBalance(_client: AccountClientMetadata): Promise<AccountDetails['balance'] | null> {
     // Peto Web meters daily Agent steps instead of a wallet: a signed-in account has no wallets, only steps.
     const lifetime = this.detailsLifetime
     const stored = await this.readCurrentGrant(lifetime)
@@ -234,16 +261,47 @@ export class PetoAccount extends DeepSeekAccount {
     return response.status === 200 ? { kind: 'ok', body: response.body } : { kind: 'failed' }
   }
 
-  override async getUnnotifiedBonuses(_client: AccountClientMetadata): Promise<AccountBonusBatch | null> {
+  /**
+   * Peto Web sends no account notifications; a signed-in account always has an empty batch.
+   * @param _client - identity of the requesting UI; Peto Web does not use it.
+   * @returns an empty batch, or null if signed out.
+   */
+  async getNotifications(_client: AccountClientMetadata): Promise<AccountNotificationBatch | null> {
     const stored = await this.readCurrentGrant(this.detailsLifetime)
-    return stored === null ? null : { accountId: stored.deviceId as AccountUserId, bonuses: [] }
+    return stored === null ? null : { nextPollAfterSeconds: NOTIFICATION_POLL_SECONDS, notifications: [] }
   }
 
-  override ackBonusNotified(_accountId: AccountUserId, _orderId: AccountBonusOrderId, _client: AccountClientMetadata): Promise<boolean> {
+  /**
+   * Peto Web has no notification content to read.
+   * @param _id - notification whose content is requested.
+   * @param _client - identity of the requesting UI.
+   * @returns null, as for a notification this account cannot read.
+   */
+  getNotificationContent(_id: AccountNotificationId, _client: AccountClientMetadata): Promise<AccountNotification | null> {
+    return Promise.resolve(null)
+  }
+
+  /**
+   * Peto Web accepts no notification events.
+   * @param _id - notification the user interacted with.
+   * @param _event - displayed frame, action click, or dismissal.
+   * @param _client - identity of the requesting UI.
+   * @returns false, as when the server did not accept the event.
+   */
+  reportNotificationEvent(
+    _id: AccountNotificationId, _event: AccountNotificationEvent, _client: AccountClientMetadata,
+  ): Promise<boolean> {
     return Promise.resolve(false)
   }
 
-  override async startSignIn(
+  /**
+   * Join an active attempt or start a device-code sign-in.
+   * @param _client - identity of the requesting UI; Peto Web does not use it.
+   * @param _callbackOrigin - browser callback origin; the device code needs none.
+   * @param _loginSource - initiating UI; the device code needs none.
+   * @returns the initial snapshot without waiting for browser approval.
+   */
+  async startSignIn(
     _client: AccountClientMetadata, _callbackOrigin: string, _loginSource: 'web' | 'desktop',
   ): Promise<AccountView> {
     if (this.removing !== undefined) await this.removing
@@ -278,13 +336,18 @@ export class PetoAccount extends DeepSeekAccount {
       // begin() may report cancellation before the HTTP work observes its signal.
       await attempt.running.catch(() => undefined)
     })
-    this.changed()
+    this.changed('snapshot')
     return this.getState()
   }
 
-  override async cancelSignIn(id: SignInAttemptId): Promise<AccountView> {
+  /**
+   * Cancel only the named attempt; a committing attempt settles before returning.
+   * @param attemptId - attempt identity from this Host.
+   * @returns state after cancellation or an already-started commit.
+   */
+  async cancelSignIn(attemptId: SignInAttemptId): Promise<AccountView> {
     const attempt = this.attempt
-    if (attempt?.view.id === id) {
+    if (attempt?.view.id === attemptId) {
       if (attempt.view.phase !== 'committing') {
         attempt.controller.abort()
         this.ctx.authorization.cancel(KEY)
@@ -294,7 +357,12 @@ export class PetoAccount extends DeepSeekAccount {
     return this.getState()
   }
 
-  override signOut(_client: AccountClientMetadata): Promise<AccountView> {
+  /**
+   * Remove the local device token; Peto Web revokes it in the background.
+   * @param _client - identity of the requesting UI; Peto Web does not use it.
+   * @returns the signed-out state after local removal; a failed revocation never restores the token.
+   */
+  signOut(_client: AccountClientMetadata): Promise<AccountView> {
     this.removing ??= (async () => {
       if (this.closed) throw new PetoAuthError('protocol')
       if (this.attempt !== undefined) await this.cancelSignIn(this.attempt.view.id)
@@ -305,31 +373,99 @@ export class PetoAccount extends DeepSeekAccount {
       }
       this.attempt = undefined
       this.ctx.emit('deepseek-account/signed-out')
-      this.changed()
+      this.changed('snapshot')
       return this.getState()
     })().finally(() => { this.removing = undefined })
     return this.removing
   }
 
-  override async *watch(signal: AbortSignal, includeIdentityChanges = false): AsyncIterable<AccountView> {
-    let dirty = true
+  /**
+   * Inspect running work before sign-out.
+   * @returns whether a running task's latest request uses the account route; false without the agents service.
+   */
+  hasRunningAccountTasks(): boolean {
+    return this.ctx.get('agents')?.list().some(isRunningAccountTask) ?? false
+  }
+
+  /**
+   * Subscribe to live credential expiry without replay.
+   * @param signal - subscription lifetime; disposal also ends it.
+   * @returns expiry notifications emitted during the subscription.
+   */
+  async *watchExpiry(signal: AbortSignal): AsyncIterable<'session-expired'> {
+    const lifetime = AbortSignal.any([signal, this.logoutLifetime.signal])
+    let pending = 0
     let wake: (() => void) | undefined
-    const wakeUp = (): void => { dirty = true; wake?.() }
-    const changed = (identityOnly: boolean): void => { if (!identityOnly || includeIdentityChanges) wakeUp() }
+    const stop = this.ctx.on('deepseek-account/session-expired', () => { pending++; wake?.() })
+    const abort = (): void => { wake?.() }
+    lifetime.addEventListener('abort', abort, { once: true })
+    try {
+      while (!lifetime.aborted) {
+        if (pending > 0) { pending--; yield 'session-expired'; continue }
+        await new Promise<void>((resolve) => { wake = resolve })
+      }
+    } finally {
+      stop()
+      lifetime.removeEventListener('abort', abort)
+    }
+  }
+
+  /**
+   * Subscribe to ordered updates, starting with a complete snapshot.
+   * @param signal - subscription lifetime; ending it never cancels sign-in.
+   * @param _includeIdentityChanges - accepted for the shared Host contract; Peto has no Platform identity to report.
+   * @returns complete state with its update type; a credential change wins when updates coalesce.
+   */
+  watch(signal: AbortSignal, _includeIdentityChanges = false): AsyncIterable<AccountUpdate> {
+    return this.observeUpdates(signal)
+  }
+
+  /**
+   * Stream account state to Clients; DeepSeek's descriptors export it as `watch`.
+   * @param signal - subscription lifetime.
+   * @returns initial state, sign-in progress, and credential-change updates.
+   */
+  watchState(signal: AbortSignal): AsyncIterable<AccountUpdate> {
+    return this.observeUpdates(signal)
+  }
+
+  private async *observeUpdates(signal: AbortSignal): AsyncIterable<AccountUpdate> {
+    let pending: Change | undefined = 'snapshot'
+    let wake: (() => void) | undefined
+    const changed = (change: Change): void => {
+      if (change === 'credentials-changed' || pending === undefined) pending = change
+      wake?.()
+    }
+    const abort = (): void => { wake?.() }
     this.listeners.add(changed)
-    signal.addEventListener('abort', wakeUp, { once: true })
+    signal.addEventListener('abort', abort, { once: true })
     try {
       while (!this.closed && !signal.aborted) {
-        if (dirty) { dirty = false; yield await this.getState(); continue }
+        if (pending !== undefined) {
+          const type = pending
+          pending = undefined
+          const lifetime = this.detailsLifetime
+          const state = await this.getState()
+          // A credential write during the read owns the next update and its replacement state.
+          // oxlint-disable-next-line typescript/no-unnecessary-condition -- abort or disposal can happen during the read.
+          if (lifetime !== this.detailsLifetime || signal.aborted || this.closed) continue
+          yield { type, state }
+          continue
+        }
         await new Promise<void>((resolve) => { wake = resolve })
       }
     } finally {
       this.listeners.delete(changed)
-      signal.removeEventListener('abort', wakeUp)
+      signal.removeEventListener('abort', abort)
     }
   }
 
-  override async resolveToken(url: string): Promise<string | undefined> {
+  /**
+   * Resolve the device token only for this Peto Web.
+   * @param url - actual request destination or API base URL.
+   * @returns the token, or undefined for other origins or a signed-out account.
+   */
+  async resolveToken(url: string): Promise<string | undefined> {
     if (this.closed || this.removing !== undefined) return undefined
     const destination = new URL(url)
     if (destination.origin !== this.origin || destination.username || destination.password) return undefined
@@ -337,19 +473,24 @@ export class PetoAccount extends DeepSeekAccount {
     return stored?.server === this.origin ? stored.token : undefined
   }
 
-  override async rejectToken(token: string): Promise<void> {
+  /**
+   * Remove a rejected token only while it still matches the stored sign-in.
+   * @param token - token captured by the rejected request.
+   */
+  async rejectToken(token: string): Promise<void> {
     const lifetime = this.detailsLifetime
     const stored = await this.readCurrentGrant(lifetime)
     if (stored?.token !== token || this.detailsLifetime !== lifetime) return
     await this.expireCredential(token, lifetime)
   }
 
-  override getPlatformSession(): Promise<PlatformSession | null> {
-    // Peto Web has no embedded account pages; its own browser session owns them.
+  /** @returns null: Peto Web has no embedded account pages; its own browser session owns them. */
+  getPlatformSession(): Promise<PlatformSession | null> {
     return Promise.resolve(null)
   }
 
-  override async getDeviceIdentity(): Promise<{ deviceId?: string; userId?: AccountUserId; osVersion: string }> {
+  /** @returns the device identifiers of the stored sign-in and this machine's OS version. */
+  async getDeviceIdentity(): Promise<{ deviceId?: string; userId?: AccountUserId; osVersion: string }> {
     const stored = await this.readGrant()
     return {
       ...stored === undefined ? {} : { deviceId: stored.deviceId, userId: stored.deviceId as AccountUserId },
@@ -383,7 +524,7 @@ export class PetoAccount extends DeepSeekAccount {
       this.ctx.emit('deepseek-account/session-expired')
       this.attempt = undefined
       this.ctx.emit('deepseek-account/signed-out')
-      this.changed()
+      this.changed('snapshot')
       return this.getState()
     })().finally(() => { this.removing = undefined })
     await this.removing
@@ -405,12 +546,12 @@ export class PetoAccount extends DeepSeekAccount {
     this.detailsLifetime = new AbortController()
   }
 
-  private changed(identityOnly = false): void { for (const listener of this.listeners) listener(identityOnly) }
+  private changed(change: Change): void { for (const listener of this.listeners) listener(change) }
 
   private update(attempt: Attempt, value: Partial<SignInAttemptView>): void {
     const { authorizeUrl: _url, ...rest } = attempt.view
     attempt.view = { ...rest, ...value }
-    this.changed()
+    this.changed('snapshot')
   }
 
   private async run(session: AuthorizationSession, attempt: Attempt): Promise<void> {

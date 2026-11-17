@@ -79,10 +79,15 @@ decisions: Responses protocol, no Peto prompt injected, steps charged like the C
   `e29858f`, needs deploying). Without it the app offers low/medium/high for every model.
 
 The sign-in and model route in this repo (built 2026-11-05, two new packages):
-- `packages/credentials/peto-account` (`@deepseek-ai/dsh-peto-account`) provides the shared `deepseekAccount` Service
-  Definition from `dsh-deepseek-account`, mounted under the existing `deepseek-account` entry id. The account controller
-  (`account` RPC namespace), the desktop Welcome window, its waiting page and Copy link button, sign-out and the
-  expiry notice all work unchanged. Sign-in is the device code above; the token is a `peto-account/default` grant in the
+- `packages/credentials/peto-account` (`@deepseek-ai/dsh-peto-account`) takes the place of DeepSeek's account
+  service, mounted under the existing `deepseek-account` entry id. Since DSH 0.2.2-rc.3 that service is one concrete
+  class (`DeepSeekAccount extends TypertRemoteService`), so `PetoAccount` extends `TypertRemoteService` itself with the
+  same service key `deepseekAccount`, Remote namespace `account` and `@Remote` methods. The Client calls them through
+  DeepSeek's generated Remote client, which sends arguments by parameter name, so the parameter names must match;
+  `tests/account.spec.ts` compares both services' Remote methods and parameter names. The package exports `./typert`
+  and `./remote`, so the typert loader registers its methods when the entry mounts. Notifications are empty (Peto Web
+  sends none). The desktop Welcome window, its waiting page and Copy link button, sign-out and the expiry notice all
+  work unchanged. Sign-in is the device code above; the token is a `peto-account/default` grant in the
   harness credential store, bound to `server` and handed only to URLs on it. Sign-out revokes it through
   `POST /api/agent/logout`. A refusal on the web ends the attempt as cancelled.
 - `packages/llm/llm-peto-account` (`@deepseek-ai/dsh-llm-peto-account`) registers route `peto`: pi-ai's
@@ -210,7 +215,10 @@ feed from Peto Web instead of signing builds.
     `standard`, `ptc` and `cordis` presets in `packages/bundle/web-app/presets/` carry the same persona: "You are
     Peto, a coding agent powered by the {{model}} model. Introduce yourself to users as Peto; an agent name given in
     the runtime context only identifies you to other agents." (`lead` stays the root agent's internal name, which
-    sessions and subagent tools rely on.) `minimal` keeps its complete prompt, which names no product.
+    sessions and subagent tools rely on.) `minimal` keeps its complete prompt, which names no product. Since the DSH
+    0.2.2-rc.3 merge the Creator (`cordis`) preset adds "You help the user customize Peto Agent itself, which is built
+    on DeepSeek Harness." where upstream says "… customize DeepSeek Harness itself."; `apps/web/tests/creator-persona.e2e.ts`,
+    `apps/cli/tests/web-agent-presets.e2e.ts` and the `creator-persona` and `deepseek-chat-import` goldens follow.
   - `snapshots/web/*/system-prompt.expected.md` (eight goldens) and `apps/web/tests/replay-round-trip.e2e.ts` follow
     that text. New Peto test: `packages/bundle/web-app/tests/peto-identity.spec.ts`, which fails if a merge restores
     the upstream rows.
@@ -222,7 +230,11 @@ feed from Peto Web instead of signing builds.
     `replay-round-trip`, `smoke-real`, `web-runtime-context/web-surface-prompt.expected.md`,
     `snapshots/web/fresh-round-trip/web-context.expected.md`, the SDK absence checks (`snapshots/sdk/sdk.snapshot.ts`,
     `apps/cli/tests/profiles/sdk/keyless-smoke.e2e.ts`) and the recorded runtime-context sections in
-    `snapshots/web/*/session*.v4.jsonl`.
+    `snapshots/web/*/session*.v4.jsonl`. Those sessions differ from upstream's only in four phrases ("The runtime
+    context names the … implementation checkout.", "through the … Web GUI whose URL", "Current … implementation
+    checkout:", "Current … Web GUI URL:", with "Peto Agent" for "DeepSeek Harness"). On a merge that conflicts there,
+    take upstream's file and replace those phrases again (done for rc.3; the replacement reproduced every earlier Peto
+    session exactly).
   - Not changed: the headless, SDK and ACP bundles keep upstream's persona and opener (they serve the `dsh` CLI and
     SDK, not the app).
 - App name (stage 2, 2026-11-05). The app is "Peto Agent", as on the Welcome screen; "Built on DeepSeek Harness" is the
@@ -285,8 +297,12 @@ feed from Peto Web instead of signing builds.
   account surfaces show steps instead of DeepSeek wallets and top-up:
   - `packages/credentials/deepseek-account/src/types.ts` (shared types, additive): `AccountLinks.manageUrl` (present
     only on Peto accounts; the UI keys its Peto layout on it), `AccountSteps`/`AccountStepCost`, and optional
-    `steps` on the ready balance. No new RPC: steps travel as the balance, so the controller, liveshare endpoint list
-    and tool-cordis catalogue are unchanged.
+    `steps` on the ready balance. No new Remote method: steps travel as the balance.
+  - `packages/experimental/deepseek-chat-import/src/client/mount.ts` (DSH 0.2.2-rc.3 merge): the trailing blank line
+    upstream ships is removed, because the pre-commit whitespace check refuses it. Take upstream's file on a conflict.
+  - `packages/credentials/deepseek-account/src/index.ts` (since the DSH 0.2.2-rc.3 merge): re-exports
+    `installAccountTaskCancellation` and `isRunningAccountTask`, which the root no longer exports, so `PetoAccount`
+    shares the sign-out task policy.
   - `packages/credentials/peto-account`: `getBalance` reads `/api/agent/me` (`steps_used`, `steps_limit`,
     `steps_reset_at`, `tokens_used`, `models[].label/step_cost`); profile and balance of one refresh share one request.
     A failed or unusable answer is a failed balance; a 401 expires the credential as before. `manageUrl` is

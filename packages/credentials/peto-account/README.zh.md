@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-在应用中用设备码登录 Peto Web，无需 API Key。设备令牌保存在本机的凭据存储中，只发往配置的 Peto Web 服务器。登录后账号页显示 Peto 账号名称和今日的 Peto Agent 步数，Peto 模型路由和网页搜索都用该令牌鉴权。它通过同一个账号服务取代 DeepSeek Platform 登录，因此账号控制器和欢迎窗口无需改动。
+在应用中用设备码登录 Peto Web，无需 API Key。设备令牌保存在本机的凭据存储中，只发往配置的 Peto Web 服务器。登录后账号页显示 Peto 账号名称和今日的 Peto Agent 步数，Peto 模型路由和网页搜索都用该令牌鉴权。它以相同的服务名和 `account` Remote 方法取代 DeepSeek 的账号服务，因此账号页和欢迎窗口无需改动。
 
 ## 目录
 
@@ -49,7 +49,7 @@ kind: "package-reference"
 
 `getProfile` 和 `getBalance` 都读取 `GET /api/agent/me`；同一次刷新中的两个查询共用一个请求。资料以 `account` 名称作为名称、以设备 ID 作为账号 ID，读取失败时保留登录时保存的名称。Peto Web 按每日 Agent 步数计量而非钱包，因此就绪的余额不含钱包，只带一个可选的 `steps` 记录：已用步数和上限、来自 `steps_reset_at` 的重置时刻（较旧的服务器没有该字段）、今日 token 数，以及账号可用的每个模型每次请求的步数。读取失败或回答无法使用时，余额为失败。该读取返回 HTTP 401，或用已存令牌调用 `rejectToken`，都会删除授权记录并发出 `deepseek-account/session-expired` 和 `deepseek-account/signed-out`。
 
-账号链接带有 `manageUrl`，即 `<server>/?settings=agent`，Peto Web 用它打开「设置 → Peto Agent」；账号页和额度提示据此显示 Peto 的布局。`signOut` 删除授权记录，发出 `deepseek-account/signed-out`，并在后台通过 `POST /api/agent/logout` 吊销设备。`getUnnotifiedBonuses` 不返回赠金，`ackBonusNotified` 返回 false，`getPlatformSession` 返回 null。
+账号链接带有 `manageUrl`，即 `<server>/?settings=agent`，Peto Web 用它打开「设置 → Peto Agent」；账号页和额度提示据此显示 Peto 的布局。`signOut` 删除授权记录，发出 `deepseek-account/signed-out`，并在后台通过 `POST /api/agent/logout` 吊销设备。Peto Web 不发送账号通知：`getNotifications` 返回空批次，`getNotificationContent` 返回 null，`reportNotificationEvent` 返回 false，`getPlatformSession` 返回 null。Remote 方法沿用 DeepSeek 的参数名，因为客户端通过 DeepSeek 生成的 Remote 客户端按名称发送参数。
 
 </details>
 

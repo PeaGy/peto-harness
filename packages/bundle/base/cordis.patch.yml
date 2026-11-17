@@ -46,8 +46,14 @@
     - id: typert
       name: '@deepseek-ai/dsh-typert-registry'
 
+    # Peto: dsh-peto-account serves DeepSeek's `account` Remote methods under the same
+    # service key, so the loader registers DeepSeek's descriptors although no entry
+    # mounts that package (PETO.md "Peto sign-in").
     - id: typert-loader
       name: '@deepseek-ai/dsh-typert-loader'
+      config:
+        packages:
+          - '@deepseek-ai/dsh-deepseek-account'
 
     - id: typert-gateway
       name: '@deepseek-ai/dsh-api-gateway'
@@ -395,6 +401,8 @@
     # separately loaded follow-up tool registers the one global `send_message`.
     - id: tool-subagent-control
       name: '@deepseek-ai/dsh-tool-subagent-control'
+      config:
+        interrupt: false
 
     - id: tool-subagent
       name: '@deepseek-ai/dsh-tool-subagent'
