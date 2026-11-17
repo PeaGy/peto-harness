@@ -33,10 +33,11 @@ Mount it under the `deepseek-account` entry id with `server` set to the Peto Web
 | `allowLoopbackHttp` | `false` | Accept plain HTTP on a loopback `server` for development |
 | `requestTimeoutMs` | `30000` | Deadline of each Peto Web request |
 | `attemptTimeoutMs` | `600000` | Upper bound of one sign-in attempt |
+| `formerServers` | `[]` | Earlier origins of the same Peto Web; a sign-in stored for one moves to `server` at mount |
 
 `startSignIn` posts the device name to `POST /api/agent/device/start`, publishes `waiting-browser` with the approval page, and polls `POST /api/agent/device/token` at the server's interval. The approval page is the server's `verification_url` when it carries the same code, otherwise `<server>/?agent_code=<code>`. Approval commits `{ version: 1, server, token, deviceId, deviceName, account }` as the `peto-account/default` grant through the authorization seam. A refusal on the page ends the attempt as `cancelled`, an expired code as `expired`. Up to three consecutive dropped connections or server errors while polling are retried; one more fails the attempt.
 
-`resolveToken(url)` returns the token only for URLs on `server`, so only the [Peto model route and its search provider](../../llm/llm-peto-account/README.md) receive it. A grant whose `server` differs from the configuration is deleted at mount and never forwarded.
+`resolveToken(url)` returns the token only for URLs on `server`, so only the [Peto model route and its search provider](../../llm/llm-peto-account/README.md) receive it. A grant whose `server` differs from the configuration is deleted at mount and never forwarded, unless that origin is listed in `formerServers`: then the grant moves to `server`, keeping its token.
 
 -----
 

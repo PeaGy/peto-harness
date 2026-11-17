@@ -33,10 +33,11 @@ kind: "package-reference"
 | `allowLoopbackHttp` | `false` | 开发时允许回环地址的 `server` 使用纯 HTTP |
 | `requestTimeoutMs` | `30000` | 每个 Peto Web 请求的期限 |
 | `attemptTimeoutMs` | `600000` | 一次登录尝试的上限 |
+| `formerServers` | `[]` | 同一 Peto Web 之前的源；为其中之一保存的登录会在挂载时迁移到 `server` |
 
 `startSignIn` 把设备名发送到 `POST /api/agent/device/start`，以批准页面发布 `waiting-browser`，并按服务器给出的间隔轮询 `POST /api/agent/device/token`。当服务器的 `verification_url` 携带同一代码时使用它作为批准页面，否则使用 `<server>/?agent_code=<code>`。批准后，通过授权接缝把 `{ version: 1, server, token, deviceId, deviceName, account }` 作为 `peto-account/default` 授权记录提交。在页面上拒绝会以 `cancelled` 结束尝试，代码过期则以 `expired` 结束。轮询期间连续最多三次连接中断或服务器错误会重试；再多一次则尝试失败。
 
-`resolveToken(url)` 只为 `server` 上的 URL 返回令牌，因此只有 [Peto 模型路由及其搜索提供方](../../llm/llm-peto-account/README.zh.md) 会收到它。`server` 与配置不同的授权记录会在挂载时删除，且永不转发。
+`resolveToken(url)` 只为 `server` 上的 URL 返回令牌，因此只有 [Peto 模型路由及其搜索提供方](../../llm/llm-peto-account/README.zh.md) 会收到它。`server` 与配置不同的授权记录会在挂载时删除，且永不转发；但若该源列在 `formerServers` 中，授权记录会迁移到 `server` 并保留其令牌。
 
 -----
 

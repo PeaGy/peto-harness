@@ -49,6 +49,11 @@ export interface Config {
   requestTimeoutMs?: number
   /** Upper bound for one sign-in attempt, even if Peto Web advertises a longer code lifetime. */
   attemptTimeoutMs?: number
+  /**
+   * Earlier origins of this same Peto Web. A stored sign-in for one of them moves to `server` instead of being deleted,
+   * so a domain change does not sign everyone out; any other origin is still dropped.
+   */
+  formerServers?: string[]
 }
 /** Validated deployment choices. */
 export const Config = Schema.object({
@@ -57,6 +62,7 @@ export const Config = Schema.object({
   allowLoopbackHttp: Schema.boolean().default(false),
   requestTimeoutMs: Schema.number().min(1).max(120_000).default(30_000),
   attemptTimeoutMs: Schema.number().min(1).max(3_600_000).default(600_000),
+  formerServers: Schema.array(Schema.string()).default([]),
 })
 
 /**
@@ -80,6 +86,7 @@ export class PetoAccount extends DeepSeekAccount {
   static inject = ['credentials', 'authorization']
   static Config = Config
   private readonly origin: string
+  private readonly formerOrigins: ReadonlySet<string>
   private readonly deviceName: string
   private readonly requestTimeout: number
   private readonly attemptTimeout: number
@@ -101,6 +108,7 @@ export class PetoAccount extends DeepSeekAccount {
     installAccountTaskCancellation(ctx)
     const resolved = Config(config)
     this.origin = serverOrigin(resolved.server, resolved.allowLoopbackHttp)
+    this.formerOrigins = new Set(resolved.formerServers.map(value => serverOrigin(value, resolved.allowLoopbackHttp)))
     this.deviceName = resolveDeviceName(resolved.deviceName)
     this.requestTimeout = resolved.requestTimeoutMs
     this.attemptTimeout = resolved.attemptTimeoutMs
@@ -135,8 +143,19 @@ export class PetoAccount extends DeepSeekAccount {
 
   async [Service.init](): Promise<void> {
     const stored = await this.readGrant()
+    if (stored === undefined || stored.server === this.origin) return
+    if (this.formerOrigins.has(stored.server)) {
+      // The same Peto Web under its earlier domain issued this token, so it stays valid at the new one.
+      const former = stored.server
+      await this.ctx.credentials.modifyRecord(KEY, (current) => {
+        const parsed = current?.kind === 'grant' ? grant.safeParse(current.payload) : undefined
+        if (current === undefined || parsed?.success !== true || parsed.data.server !== former) return Promise.resolve(undefined)
+        return Promise.resolve({ ...current, payload: { ...parsed.data, server: this.origin } })
+      })
+      return
+    }
     // A token issued by another Peto server must never reach this one.
-    if (stored !== undefined && stored.server !== this.origin) await this.ctx.credentials.deleteRecord(KEY)
+    await this.ctx.credentials.deleteRecord(KEY)
   }
 
   override async getState(): Promise<AccountView> {

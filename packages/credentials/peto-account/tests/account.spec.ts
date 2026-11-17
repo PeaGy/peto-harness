@@ -358,6 +358,24 @@ it('drops a token issued by another server when it mounts', async () => {
   expect((await g.account.getState()).status).toBe('signed-out')
 })
 
+it('moves a sign-in from a former origin of the same Peto Web instead of dropping it', async () => {
+  const before = await peto()
+  const f = await signedIn(before)
+  const stored = await f.ctx.credentials.readRecord(KEY) as { payload: Record<string, unknown> }
+  await f.dispose()
+  const after = await peto()
+  const g = await fixture(after, { formerServers: [`${before.origin}/`] }, f.home)
+  expect((await g.account.getState()).status).toBe('credential-stored')
+  const moved = await g.ctx.credentials.readRecord(KEY) as { payload: Record<string, unknown> }
+  expect(moved.payload).toEqual({ ...stored.payload, server: after.origin })
+  expect(await g.account.resolveToken(`${after.origin}/api/agent/v1`)).toBe(stored.payload.token)
+  expect(await g.account.resolveToken(`${before.origin}/api/agent/v1`)).toBeUndefined()
+  await g.dispose()
+  const unrelated = await peto()
+  const h = await fixture(unrelated, { formerServers: ['https://elsewhere.example'] }, f.home)
+  expect((await h.account.getState()).status).toBe('signed-out')
+})
+
 it('refuses stored records it did not write', async () => {
   const server = await peto()
   const f = await fixture(server)

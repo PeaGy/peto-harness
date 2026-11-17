@@ -88,8 +88,13 @@ The sign-in and model route in this repo (built 2026-11-05, two new packages):
 - `packages/llm/llm-peto-account` (`@deepseek-ai/dsh-llm-peto-account`) registers route `peto`: pi-ai's
   `PiAiAdapter` in `openai-responses` form against `baseURL`, API key = the account token, catalog from the gateway's
   `/models` (loaded before every lookup and request, reloaded on sign-in/out). The default Agent model is `peto/peto`.
-- Server address: `https://peto.pearto.shop` in `packages/bundle/base/cordis.patch.yml` (both entries); a private
-  `$DSH_HOME/cordis.patch.yml` can override it. Not a credential.
+- Server address: `https://peto.peagy.com` in `packages/bundle/base/cordis.patch.yml` (both entries); a private
+  `$DSH_HOME/cordis.patch.yml` can override it. Not a credential. Peto Web moved there from `peto.pearto.shop` on
+  2026-11-17 (the old domain still answers `/api/`, so older builds keep working). The account entry lists the old
+  origin in `formerServers`: a sign-in stored for it is rewritten to the new origin at mount instead of deleted, so
+  updating does not sign anyone out; any other origin is still dropped. The packaging `.env.windows` policy origin
+  (and with it the update feed) is the new domain too; the app ID `shop.pearto.peto.agent` stays, since changing it
+  would install a separate app that the old one cannot update into.
 - Tests: `tests/account.spec.ts` (27) and `tests/provider.spec.ts` (10) against fake Peto servers on 127.0.0.1, including
   one streamed reply through pi-ai. Line coverage 100% / ~90%; branch coverage is below upstream's 100% gate (mostly
   disposal races).

@@ -120,10 +120,14 @@
     # Peto: the account entry signs in to Peto Web through the Peto Agent device
     # code instead of DeepSeek Platform (PETO.md "Peto sign-in"). A private
     # `$DSH_HOME/cordis.patch.yml` can point `server` at another Peto Web.
+    # Peto Web moved to peto.peagy.com on 2026-11-17; a sign-in stored for the
+    # old domain moves to the new one instead of being deleted.
     - id: deepseek-account
       name: '@deepseek-ai/dsh-peto-account'
       config:
-        server: https://peto.pearto.shop
+        server: https://peto.peagy.com
+        formerServers:
+          - https://peto.pearto.shop
 
     - id: credentials
       name: '@deepseek-ai/dsh-credentials-local'
@@ -559,4 +563,4 @@
     - id: llm-peto-account
       name: '@deepseek-ai/dsh-llm-peto-account'
       config:
-        baseURL: https://peto.pearto.shop/api/agent/v1
+        baseURL: https://peto.peagy.com/api/agent/v1
