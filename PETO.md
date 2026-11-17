@@ -251,7 +251,9 @@ feed from Peto Web instead of signing builds.
     `scripts/package-macos.ts`, `package-target.ts`, `smoke-packaged-runtime.ts`, `verify-retained-desktop.ts`,
     `development-app.ts`, `electron-builder.config.d.mts`. Artifact names (`deepseek-harness-<version>-…`) are
     unchanged: the upload, update-feed and version-discovery scripts match them, so they change with stage 3.
-  - Installer: `apps/desktop/installer/locales/*.json` (eight) and `extract-report.h`.
+  - Installer: `apps/desktop/installer/locales/*.json` (eight) and `extract-report.h`; since the DSH 0.2.2-rc.3 merge
+    also the update status window's title and caption, hardcoded as "DeepSeek Harness" in `restart-banner.h` and
+    `restart-status.h`.
 - Release branding (2026-11-06). Upstream builds unsigned packages with the local client profile ("DSH Local Build"
   label, version and commit badge, window title) so a test artifact never passes for a release. Every Peto release is
   unsigned, so `apps/desktop/scripts/package-target.ts` builds the official profile in every mode, and
