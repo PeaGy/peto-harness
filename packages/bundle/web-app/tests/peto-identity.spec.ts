@@ -10,6 +10,8 @@ const PACKAGE_DIR = fileURLToPath(new URL('..', import.meta.url))
 const MANIFEST = JSON.parse(readFileSync(join(PACKAGE_DIR, 'package.json'), 'utf8')) as { dsh: { bundle: { patch: string[] } } }
 const PERSONA = 'You are Peto, a coding agent powered by the {{model}} model. Introduce yourself to users as Peto; '
   + 'an agent name given in the runtime context only identifies you to other agents.'
+/** The Creator (`cordis`) preset's customization intent, naming the app the user customizes. */
+const CREATOR_INTENT = 'You help the user customize Peto Agent itself, which is built on DeepSeek Harness.'
 
 /** The persona row config of an agent preset. */
 interface PersonaConfig {
@@ -47,7 +49,8 @@ it('names the deployment persona Peto without the harness opener', () => {
 it('names every coding preset persona Peto', () => {
   const personas = presetPersonas()
   expect([...personas.keys()].sort()).toEqual(['cordis', 'minimal', 'ptc', 'standard'])
-  for (const id of ['standard', 'ptc', 'cordis']) expect(personas.get(id)).toEqual({ prefix: PERSONA })
+  for (const id of ['standard', 'ptc']) expect(personas.get(id)).toEqual({ prefix: PERSONA })
+  expect(personas.get('cordis')).toEqual({ prefix: `${PERSONA} ${CREATOR_INTENT}` })
   // The minimal preset owns its complete prompt, which names no product.
   expect(personas.get('minimal')).toEqual({
     prefix: 'You are a helpful software engineer assistant.', complete: true, includeRuntimeContext: false,

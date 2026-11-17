@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Sign in to Peto Web from the app with a device code, without an API key. The device token stays in this computer's credential store and goes only to the configured Peto Web server. The account page then shows the Peto account name and today's Peto Agent steps, and the Peto model route and web search authenticate with the token. It replaces DeepSeek Platform sign-in through the same account service, so the account controller and the Welcome window work unchanged.
+Sign in to Peto Web from the app with a device code, without an API key. The device token stays in this computer's credential store and goes only to the configured Peto Web server. The account page then shows the Peto account name and today's Peto Agent steps, and the Peto model route and web search authenticate with the token. It takes the place of DeepSeek's account service under the same service name and `account` Remote methods, so the account page and the Welcome window work unchanged.
 
 ## Table of Contents
 
@@ -49,7 +49,7 @@ Mount it under the `deepseek-account` entry id with `server` set to the Peto Web
 
 `getProfile` and `getBalance` both read `GET /api/agent/me`; the two queries of one refresh share a single request. The profile reports the `account` name with the device ID as the account ID, and a failed read keeps the name stored at sign-in. Peto Web meters daily Agent steps instead of a wallet, so the ready balance carries no wallets and an optional `steps` record: used and limit, the reset instant from `steps_reset_at` (absent from older servers), today's tokens, and the steps per request of each model the account may use. A failed or unusable answer is a failed balance. HTTP 401 on that read, or `rejectToken` with the stored token, deletes the grant and emits `deepseek-account/session-expired` and `deepseek-account/signed-out`.
 
-The account links carry `manageUrl`, `<server>/?settings=agent`, which Peto Web opens at Settings → Peto Agent; the account page and the quota notice key their Peto layout on it. `signOut` deletes the grant, emits `deepseek-account/signed-out` and revokes the device through `POST /api/agent/logout` in the background. `getUnnotifiedBonuses` returns no bonuses, `ackBonusNotified` returns false and `getPlatformSession` returns null.
+The account links carry `manageUrl`, `<server>/?settings=agent`, which Peto Web opens at Settings → Peto Agent; the account page and the quota notice key their Peto layout on it. `signOut` deletes the grant, emits `deepseek-account/signed-out` and revokes the device through `POST /api/agent/logout` in the background. Peto Web sends no account notifications: `getNotifications` returns an empty batch, `getNotificationContent` returns null, `reportNotificationEvent` returns false, and `getPlatformSession` returns null. The Remote methods keep DeepSeek's parameter names, because the Client calls them through DeepSeek's generated Remote client, which sends arguments by name.
 
 </details>
 
