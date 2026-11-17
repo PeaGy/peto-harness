@@ -85,16 +85,6 @@ Function InstallerFinish
         Quit
     ${EndIf}
     System::Call 'user32::DestroyWindow(p $InstallerProgressWindow)'
-    ; Peto: an update reopens the app as soon as it is installed, as upstream's silent update does, instead of waiting
-    ; on the Finish page (customInit makes updates show this progress window).
-    ${If} ${isUpdated}
-        HideWindow
-        Call InstallerLaunchApp
-        ${If} ${Errors}
-            MessageBox MB_OK|MB_ICONEXCLAMATION "$(INSTALLER_LAUNCH_FAILED)"
-        ${EndIf}
-        Quit
-    ${EndIf}
     StrCpy $InstallerPhase "success"
     Call InstallerCreate
 FunctionEnd

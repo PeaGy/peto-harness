@@ -143,17 +143,15 @@ feed from Peto Web instead of signing builds.
 - First real update, 2026-11-17, 20261107.1 → 20261117.1 through the button: the first try was lost because the owner
   reopened the app while the silent install ran (the old folder could not be swapped); the second one installed in
   about 42 s, relaunched by itself and kept the sign-in.
-- Installer window during updates (2026-11-17): the app starts updates silently (`--updated /S --force-run`), so the
-  minute an install takes showed nothing and invited reopening the app. Peto changes three upstream installer files:
-  - `apps/desktop/scripts/installer.nsh`: `customInit` switches an update (`${isUpdated}`) to `SetSilent normal`, so
-    the progress window shows.
-  - `apps/desktop/installer/pages.nsh`: the app launch moves out of `InstallerFinishLeave` into `InstallerLaunchApp`,
-    which the Finish page still calls.
-  - `apps/desktop/installer/lifecycle.nsh`: `InstallerFinish` on an update hides the window, calls
-    `InstallerLaunchApp` (a launch failure shows `INSTALLER_LAUNCH_FAILED`) and quits, instead of waiting on Finish.
-  Checked on 0.2.2-rc.1.20261117.2 run as an update would run it, over 20261117.1 with the app closed: the "Peto Agent
-  Setup" window showed from extraction to the end (about 100 s with a typecheck loading the machine), the app reopened
-  1 s after the installer exited without a click, and the uninstall entry read 20261117.2.
+- Update status window (2026-11-17): the app starts updates silently (`--updated /S --force-run`), so the minute an
+  install takes showed nothing and invited reopening the app. Peto first showed the full installer window during
+  updates (`8c687c8fa2`, checked on 0.2.2-rc.1.20261117.2: the window showed for the whole install and the app reopened
+  by itself). DSH 0.2.2-rc.2 solved the same problem upstream: a silent update with `--force-run` keeps installing
+  silently and shows a small themed status window with the installer icon and "Installing the update. The app will
+  restart automatically when the update is complete." (`installer/restart-*.h`, `scripts/restart-banner.nsh`), and
+  rc.3 fixed an in-app update that could fail to reopen the app. The owner chose DSH's window on 2026-11-17, so the rc.3
+  merge reverts Peto's change and the three installer files equal upstream's again. The installer, this window
+  included, has eight languages and no Vietnamese.
 
 ## The Python agent-cli
 
