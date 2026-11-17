@@ -30,6 +30,11 @@ ManifestDPIAware true
 !macroend
 
 !macro customInit
+  ; Peto: the app starts updates silently (/S --updated). Show the progress window anyway: the update takes about a
+  ; minute, and a user who saw nothing reopened the app, which blocks the final folder swap and loses the update.
+  ${If} ${isUpdated}
+    SetSilent normal
+  ${EndIf}
   ${If} ${isForAllUsers}
     MessageBox MB_OK|MB_ICONEXCLAMATION "$(INSTALLER_PER_USER)" /SD IDOK
     SetErrorLevel 2
