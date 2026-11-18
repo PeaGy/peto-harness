@@ -145,7 +145,7 @@ feed from Peto Web instead of signing builds.
   about 42 s, relaunched by itself and kept the sign-in.
 - Update status window (2026-11-17): the app starts updates silently (`--updated /S --force-run`), so the minute an
   install takes showed nothing and invited reopening the app. Peto first showed the full installer window during
-  updates (`8c687c8fa2`, checked on 0.2.2-rc.1.20261117.2: the window showed for the whole install and the app reopened
+  updates (checked on the unreleased 0.2.2-rc.1.20261117.2: the window showed for the whole install and the app reopened
   by itself). DSH 0.2.2-rc.2 solved the same problem upstream: a silent update with `--force-run` keeps installing
   silently and shows a small themed status window with the installer icon and "Installing the update. The app will
   restart automatically when the update is complete." (`installer/restart-*.h`, `scripts/restart-banner.nsh`), and
