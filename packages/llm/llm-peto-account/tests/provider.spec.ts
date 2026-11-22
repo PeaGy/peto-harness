@@ -1,5 +1,6 @@
 /** The Peto route lists the account's gateway models and streams through pi-ai with the account's device token. */
 import { createServer } from 'node:http'
+import { gunzipSync } from 'node:zlib'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { afterEach, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -49,15 +50,18 @@ interface Gateway {
   listing: { status: number; body?: unknown }
   /** Error answer to `/responses`, in the gateway's OpenAI shape; absent streams {@link REPLY}. */
   failure?: { status: number; body: unknown }
-  requests: Array<{ path: string | undefined; authorization: string | undefined; body: unknown }>
+  requests: Array<{ path: string | undefined; authorization: string | undefined; encoding: string | undefined; body: unknown }>
 }
 
 async function gateway(): Promise<Gateway> {
   const state: Gateway = { origin: '', baseURL: '', listing: { status: 200, body: LISTING }, requests: [] }
   const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    let text = ''
-    for await (const chunk of req) text += String(chunk)
-    state.requests.push({ path: req.url, authorization: req.headers.authorization, body: text ? JSON.parse(text) : undefined })
+    const chunks: Buffer[] = []
+    for await (const chunk of req) chunks.push(chunk as Buffer)
+    const raw = Buffer.concat(chunks)
+    const encoding = req.headers['content-encoding']
+    const text = (encoding === 'gzip' ? gunzipSync(raw) : raw).toString('utf8')
+    state.requests.push({ path: req.url, authorization: req.headers.authorization, encoding, body: text ? JSON.parse(text) : undefined })
     if (req.method === 'GET' && req.url === '/api/agent/v1/models') {
       res.writeHead(state.listing.status, { 'content-type': 'application/json' })
         .end(state.listing.body === undefined ? 'not json' : JSON.stringify(state.listing.body))
@@ -94,11 +98,11 @@ async function host(server: Gateway, token: () => string | undefined = () => TOK
   return { ctx, rejected, updates }
 }
 
-async function assemble(ctx: Context, model: string) {
+async function assemble(ctx: Context, model: string, text = 'hi') {
   const assembler = new BlockAssembler()
   for await (const chunk of ctx.llm.stream({
     provider: Peto.PROVIDER, model, reasoningEffort: ReasoningEffortId('high'),
-    messages: [createUserMessage({ content: [{ type: 'text', text: 'hi' }], source: { kind: 'model', provider: 'peto', model } })],
+    messages: [createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'model', provider: 'peto', model } })],
   })) assembler.push(chunk)
   return { message: assembler.message({ provider: Peto.PROVIDER, model }), finish: assembler.finish }
 }
@@ -128,6 +132,18 @@ it('streams a reply through the gateway with the device token', async () => {
   const call = server.requests.find(row => row.path === '/api/agent/v1/responses')
   expect(call?.authorization).toBe(`Bearer ${TOKEN}`)
   expect(call?.body).toMatchObject({ model: 'peto', stream: true, reasoning: { effort: 'high' } })
+})
+
+it('sends large steps gzip-compressed and small ones as they are', async () => {
+  const server = await gateway()
+  const { ctx } = await host(server)
+  const long = 'nén '.repeat(Peto.GZIP_MIN_BYTES)
+  expect((await assemble(ctx, 'peto')).finish).toEqual({ kind: 'stop' })
+  expect((await assemble(ctx, 'peto', long)).finish).toEqual({ kind: 'stop' })
+  const [small, large] = server.requests.filter(row => row.path === '/api/agent/v1/responses')
+  expect(small?.encoding).toBeUndefined()
+  expect(large?.encoding).toBe('gzip')
+  expect(JSON.stringify(large?.body)).toContain(long)
 })
 
 it('reports used-up daily steps as the account quota and leaves other failures alone', async () => {

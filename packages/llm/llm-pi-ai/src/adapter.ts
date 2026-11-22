@@ -119,6 +119,11 @@ export interface PiAiAdapterOptions {
    * @returns headers to pass to pi-ai after applying Harness attribution.
    */
   prepareHeaders?: (request: PiAiRequestHeaderContext, headers: Headers) => Headers
+  /**
+   * Peto: fetch implementation for this adapter's model requests, passed to pi-ai as its `fetch` option; omitted uses
+   * `globalThis.fetch`. dsh-llm-peto-account compresses large request bodies through it.
+   */
+  fetch?: typeof globalThis.fetch
   /** Resolve the optional durable attachment service at request time. */
   resolveAttachments?: () => AttachmentStore | undefined
   /** Bridge one attachment reference into the current model-tool execution world. */
@@ -479,6 +484,7 @@ export class PiAiAdapter extends LlmAdapter {
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         signal: watchdog.signal,
         headers: requestHeaders(profile.headers, options, model.baseUrl, this.config.prepareHeaders),
+        ...this.config.fetch === undefined ? {} : { fetch: this.config.fetch },
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id, digest)[Symbol.asyncIterator]()
       let exhausted = false

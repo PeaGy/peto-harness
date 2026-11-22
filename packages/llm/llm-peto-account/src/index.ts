@@ -20,9 +20,11 @@ import type {} from '@deepseek-ai/dsh-deepseek-account'
 import type {} from '@deepseek-ai/dsh-fs'
 import { PiAiAdapter, authContextFrom, credentialStoreFrom, resolveProfiles } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { PiAiAdapterOptions, PiAiModelProfile, ResolvedPiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
+import { gzipRequests } from './compress.ts'
 import { listingRequest, parseListing } from './listing.ts'
 import { PetoSearchProvider, type WebSeam } from './search.ts'
 
+export { GZIP_MIN_BYTES, gzipRequests } from './compress.ts'
 export { parseListing, reasoningEffortsOf } from './listing.ts'
 export { mapPetoSearch, PETO_SEARCH_COUNT, PETO_SEARCH_PROVIDER_ID, PetoSearchProvider } from './search.ts'
 export type { PetoSearchOptions } from './search.ts'
@@ -182,6 +184,8 @@ export function apply(ctx: Context, config: Config): void {
   const adapter = new PetoAdapter({
     profiles: () => profiles,
     resolveApiKey,
+    // Large steps upload gzip-compressed (compress.ts); Peto Web reads `Content-Encoding: gzip`.
+    fetch: gzipRequests(),
     auth: { credentials: credentialStoreFrom(ctx), authContext: authContextFrom(ctx) },
     resolveAttachments: () => ctx.get('attachments'),
     resolveImageAccess: (attachments, ref) => resolveImageAttachmentAccess(

@@ -205,6 +205,12 @@ feed from Peto Web instead of signing builds.
     `peto/peto` instead of `deepseek-official/deepseek-flash`. `packages/bundle/base/package.json` lists both packages.
   - `packages/llm/llm-pi-ai/src/index.ts` also exports `resolveProfiles`, `authContextFrom` and `credentialStoreFrom`;
     its `adapter.spec.ts` "keeps adapter helpers off the package root" now expects `resolveProfiles` on the root.
+  - `packages/llm/llm-pi-ai/src/adapter.ts` (2026-11-22): `PiAiAdapterOptions.fetch`, passed to pi-ai's `fetch` option.
+    `llm-peto-account` sets it to `gzipRequests()` (`src/compress.ts`): a model request body of 16 KiB or more is sent
+    with `Content-Encoding: gzip`. On 2026-11-22 three uploads of a long session (about 120,000 tokens each) were cut
+    off between the app and Cloudflare while small requests went through; compressed, an upload takes a fraction of the
+    time. Peto Web's agent endpoints read gzip bodies from the same day, so Peto Web must be deployed before a ph build
+    that compresses: an older Peto Web answers a compressed body with 400.
   - `tsconfig.base.json` (regenerated aliases), `tsconfig.host.json` (two references) and `pnpm-lock.yaml` (two
     workspace importers, no new external packages).
 - Agent identity (2026-11-05; before it the agent answered "I'm lead … running in DeepSeek Harness"):

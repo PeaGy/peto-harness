@@ -49,7 +49,7 @@ kind: "package-reference"
 <details>
 <summary>实现细节——点击展开</summary>
 
-请求通过 [pi-ai 适配器](../llm-pi-ai/README.zh.md) 以 OpenAI Responses 形式发出。模型目录来自以令牌作为 Bearer 凭据请求的 `GET <baseURL>/models`；重定向会失败。每个条目成为一个接受文本和图片的模型，带有其 `display_name`、`context_window` 和 `max_output_tokens`，Peto 的 `reasoning_efforts` 字段决定可选级别，其中 Peto 的 `none` 以 `off` 提供；没有该字段的网关提供 `low`、`medium` 和 `high`。当令牌变化或列表早于 `modelsMaxAgeMs` 时，每次模型查询和请求之前都会先加载列表。重新加载失败时保留同一令牌的上一份列表；无法列出的令牌不提供任何模型。登录、登出和凭据变化会重新加载列表，目录变化时发出 `llm/models-updated`。
+请求通过 [pi-ai 适配器](../llm-pi-ai/README.zh.md) 以 OpenAI Responses 形式发出；16 KiB 及以上的请求体以 gzip 压缩发送（[src/compress.ts](src/compress.ts)），Peto Web 可以读取。模型目录来自以令牌作为 Bearer 凭据请求的 `GET <baseURL>/models`；重定向会失败。每个条目成为一个接受文本和图片的模型，带有其 `display_name`、`context_window` 和 `max_output_tokens`，Peto 的 `reasoning_efforts` 字段决定可选级别，其中 Peto 的 `none` 以 `off` 提供；没有该字段的网关提供 `low`、`medium` 和 `high`。当令牌变化或列表早于 `modelsMaxAgeMs` 时，每次模型查询和请求之前都会先加载列表。重新加载失败时保留同一令牌的上一份列表；无法列出的令牌不提供任何模型。登录、登出和凭据变化会重新加载列表，目录变化时发出 `llm/models-updated`。
 
 额度用完时网关返回 `insufficient_quota`，pi-ai 把它报告为 `QUOTA`；该路由把它改记为 `ACCOUNT_QUOTA`，于是由账号功能的提示说明步数及其重置时间。搜索提供方（[src/search.ts](src/search.ts)）在本地重述网页接缝的类型而不导入它们，因此本包不增加依赖。列表或搜索返回 HTTP 401 时通过 `rejectToken` 报告该令牌；其他搜索失败带有 Peto Web 的错误消息。
 
