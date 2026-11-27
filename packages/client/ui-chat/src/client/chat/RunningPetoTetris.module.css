@@ -1,0 +1,20 @@
+/*
+ * Peto: the running icon's own footprint. Upstream's whale tail sits in a 14px `.runningIcon` (ChatView.module.css); a
+ * 6x6 Tetris board needs Peto Web's default 20px to read, which still fits the 28px running row.
+ */
+.icon {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: calc(20px + var(--dsh-content-font-delta, 0px));
+  height: calc(20px + var(--dsh-content-font-delta, 0px));
+  /* The fixed footprint contains the animation's layout and paint. */
+  contain: strict;
+  overflow: hidden;
+}
+
+.board {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

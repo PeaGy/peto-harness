@@ -257,6 +257,14 @@ feed from Peto Web instead of signing builds.
     `scripts/package-macos.ts`, `package-target.ts`, `smoke-packaged-runtime.ts`, `verify-retained-desktop.ts`,
     `development-app.ts`, `electron-builder.config.d.mts`. Artifact names (`deepseek-harness-<version>-…`) are
     unchanged: the upload, update-feed and version-discovery scripts match them, so they change with stage 3.
+  - Running indicator (2026-11-27, owner's pick): the running Chat status showed DeepSeek's animated whale tail
+    (`RunningWhaleTail.tsx`, `running-whale@2x.png`). It now shows Peto Web's Tetris indicator in its self-playing
+    form (`packages/client/ui-chat/src/client/chat/RunningPetoTetris.tsx`, `peto-tetris.ts`, ported from Peto Web
+    `frontend/src/features/chat/indicator/tetrisMark.ts`): a 6×6 board in a 20px footprint (the whale had 14px), the
+    light palette while the row's text color is dark, a still frame under reduced motion and the text color only
+    under forced colors. `RunningStatus.tsx` changes one import; upstream's whale files stay, unused, to keep merges
+    simple. `tests/chat-view.client.spec.tsx` and `apps/web/tests/reasoning-preview.e2e.ts` check the board instead of
+    the whale; new `tests/running-peto-tetris.client.spec.tsx`.
   - First-run onboarding art (2026-11-27, owner approved): the eight `packages/client/ui-settings-account/src/client/
     assets/onboarding-{welcome,recharge}[-zh][-dark].webp` showed DeepSeek's whale, "deepseek HARNESS", a DeepSeek
     model and a DeepSeek wallet with Top up. They are redrawn as Peto scenes (Peto mark and "Peto Agent", model "Peto
