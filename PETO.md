@@ -257,6 +257,14 @@ feed from Peto Web instead of signing builds.
     `scripts/package-macos.ts`, `package-target.ts`, `smoke-packaged-runtime.ts`, `verify-retained-desktop.ts`,
     `development-app.ts`, `electron-builder.config.d.mts`. Artifact names (`deepseek-harness-<version>-…`) are
     unchanged: the upload, update-feed and version-discovery scripts match them, so they change with stage 3.
+  - Leftover DeepSeek and "Harness" copy (2026-11-27), all eight languages: `ui-settings-account` `loginDescription`
+    (sign-in dialog), `signedIn` and `signInDescription` name Peto instead of DeepSeek, and the package description
+    (`package.json`, `locale/*.json`, regenerated `dsh-doc` `references/packages.md`) reads "Sign in to your Peto account
+    and see today's Peto Agent steps"; `apps/desktop/src/locale.ts` `welcomeKeyDescription` ends in Peto Agent instead
+    of Harness (the page still configures DeepSeek keys); `ui-shortcuts` names Peto Agent in its upgrade and restart
+    advice (the es/fr/pt copy had translated "Harness" as a harness). Goldens follow: the account `tests/expected`
+    files, `apps/desktop/tests/expected/welcome/en-api-key.expected.txt` and
+    `apps/web/tests/expected/onboarding-deepseek-config/sign-in.expected.md`. Package READMEs keep the engine name.
   - Running indicator (2026-11-27, owner's pick): the running Chat status showed DeepSeek's animated whale tail
     (`RunningWhaleTail.tsx`, `running-whale@2x.png`). It now shows Peto Web's Tetris indicator in its self-playing
     form (`packages/client/ui-chat/src/client/chat/RunningPetoTetris.tsx`, `peto-tetris.ts`, ported from Peto Web

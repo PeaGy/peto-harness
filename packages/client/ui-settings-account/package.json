@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-settings-account",
-  "description": "Manage DeepSeek login and open Platform billing pages",
+  "description": "Sign in to your Peto account and see today's Peto Agent steps",
   "version": "0.2.2-rc.5",
   "publishConfig": {
     "access": "public"
