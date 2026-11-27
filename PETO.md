@@ -257,6 +257,13 @@ feed from Peto Web instead of signing builds.
     `scripts/package-macos.ts`, `package-target.ts`, `smoke-packaged-runtime.ts`, `verify-retained-desktop.ts`,
     `development-app.ts`, `electron-builder.config.d.mts`. Artifact names (`deepseek-harness-<version>-…`) are
     unchanged: the upload, update-feed and version-discovery scripts match them, so they change with stage 3.
+  - First-run onboarding art (2026-11-27, owner approved): the eight `packages/client/ui-settings-account/src/client/
+    assets/onboarding-{welcome,recharge}[-zh][-dark].webp` showed DeepSeek's whale, "deepseek HARNESS", a DeepSeek
+    model and a DeepSeek wallet with Top up. They are redrawn as Peto scenes (Peto mark and "Peto Agent", model "Peto
+    Low", account "Peto", the steps card with "196 of 200 steps left today" and Peto, 6 Luna and Haiku 5.5 chips,
+    neutral sample sessions), from HTML rendered by Chromium at the originals' sizes with transparent backgrounds.
+    The file names stay upstream's, so `OnboardingWelcomeStep.tsx` and `OnboardingCreditStep.tsx` are unchanged. On a
+    merge that changes these images, keep Peto's.
   - Installer: `apps/desktop/installer/locales/*.json` (eight) and `extract-report.h`; since the DSH 0.2.2-rc.3 merge
     also the update status window's title and caption, hardcoded as "DeepSeek Harness" in `restart-banner.h` and
     `restart-status.h`.
